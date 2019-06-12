@@ -1,7 +1,12 @@
 # Simple Camera Calibration in Python for Beginners
 
-* Open this repo in Azure [![Azure Notebooks](https://notebooks.azure.com/launch.svg)](https://notebooks.azure.com/nbhr/projects/pycalib)
-  * or import from [this link](https://notebooks.azure.com/import/gh/nbhr/pycalib/).
+## How to use
+
+You can clone/download this repository in to your local PC, and open `./ipynb/*.ipynb` files by Jupyter.
+* Required packages: `cv2`, `pytorch`
+
+Alternatively, you can use Azure Notebooks to clone the repo and run `.ipynb` files online.
+* Open this repo in [![Azure Notebooks](https://notebooks.azure.com/launch.svg)](https://notebooks.azure.com/nbhr/projects/pycalib), and click `Clone` to start with your own copy.
 
 ## Lv1: OpenCV
 
