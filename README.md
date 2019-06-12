@@ -1,6 +1,7 @@
 # Simple Camera Calibration in Python for Beginners
 
 * Open this repo in Azure [![Azure Notebooks](https://notebooks.azure.com/launch.svg)](https://notebooks.azure.com/nbhr/projects/pycalib)
+  * or import from [this link](https://notebooks.azure.com/import/gh/nbhr/pycalib/).
 
 ## Lv1: OpenCV
 
