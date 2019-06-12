@@ -2,11 +2,12 @@
 
 ## How to use
 
-You can clone/download this repository in to your local PC, and open `./ipynb/*.ipynb` files by Jupyter.
-* Required packages: `cv2`, `pytorch`
-
-Alternatively, you can use Azure Notebooks to clone the repo and run `.ipynb` files online.
-* Open this repo in [![Azure Notebooks](https://notebooks.azure.com/launch.svg)](https://notebooks.azure.com/nbhr/projects/pycalib), and click `Clone` to start with your own copy.
+1. **Local:** You can clone/download this repository in to your local PC, and open `./ipynb/*.ipynb` files by Jupyter.
+   * Required packages: `cv2`, `pytorch`
+2. **Azure Notebooks:** You can use Microsoft Azure Notebooks to clone the repo and run `.ipynb` files online.
+   * Open this repo in [![Azure Notebooks](https://notebooks.azure.com/launch.svg)](https://notebooks.azure.com/nbhr/projects/pycalib), and click `Clone` to start with your own copy.
+3. **Colaboratory:** You can open each Jupyter notebooks directly in Google Colaboratory by clicking the ![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg) buttons below.
+   * Since colab does not clone images used in the Jupyter notebooks, some of them do not run properly as-is.  Please upload required files by hand.
 
 ## Lv1: OpenCV
 
