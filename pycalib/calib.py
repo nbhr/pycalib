@@ -37,6 +37,56 @@ def excalib(p1, p2, A, d):
     _, R, t, _ = cv2.recoverPose(E, n1, n2, A, mask=status)
     return R, t, E, status
 
+def recoverPose2(E, n1, n2, K1, K2, mask):
+    n1 = n1.reshape((-1, 2))
+    n2 = n2.reshape((-1, 2))
+    R2a, R2b, t2 = cv2.decomposeEssentialMat(E)
+    R1 = np.eye(3)
+    t1 = np.zeros((3,1))
+
+    def z_count(R1, t1, R2, t2, K1, K2, n1, n2):
+        """
+        Count number of points appeared in front of the cameras
+        """
+        P1 = K1 @ np.hstack((R1, t1))
+        P2 = K2 @ np.hstack((R2, t2))
+        Xh1 = cv2.triangulatePoints(P1, P2, n1, n2)
+        Xh1 /= Xh1[3,:]
+        z1 = np.sum(Xh1[2,:]>0)  # num of positive z points in Cam1 coordinate system
+        Xh2 = R2 @ Xh1[:3,:] + t2
+        z2 = np.sum(Xh2[2,:]>0)  # num of positive z points in Cam2 coordinate system
+        return (z1 + z2), Xh1[:3,:]
+
+    zmax = -1
+    for R2x, t2x in [[R2a, t2], [R2a, -t2], [R2b, t2], [R2b, -t2]]:
+        z, Xx = z_count(R1, t1, R2x,  t2x, K1, K2, n1.T, n2.T)
+        if zmax < z:
+            zmax = z
+            R2_est = R2x
+            t2_est = t2x
+            X_est = Xx
+            
+    return R2_est, t2_est
+
+def excalib2(p1, p2, A1, d1, A2, d2):
+    """
+    Returns R, t satisfying x2 = R * x1 + t (= p1 will be the world camera)
+    """
+    p1 = transpose_to_col(p1, 2).reshape((-1,1,2)).astype(np.float)
+    p2 = transpose_to_col(p2, 2).reshape((-1,1,2)).astype(np.float)
+
+    # Undistort
+    n1 = undistort_points(p1, A1, d1)
+    n2 = undistort_points(p2, A2, d2)
+    
+    # Find E
+    F, status = cv2.findFundamentalMat(n1, n2, cv2.FM_RANSAC)
+    E = A2.T @ F @ A1
+    E = E / np.linalg.norm(E)
+
+    # Decompose E
+    R, t = recoverPose2(E, n1, n2, A1, A2, mask=status)
+    return R, t, E, status
 
 def skew(x):
     """
@@ -218,8 +268,12 @@ def triangulate(pt2d, P):
         x[0,:] = P[i][0,:] - pt2d[i][0] * P[i][2,:]
         x[1,:] = P[i][1,:] - pt2d[i][1] * P[i][2,:]
         AtA += x.T @ x
+    
     _, v = np.linalg.eigh(AtA)
-    return v[:,0] / v[3,0]
+    if np.isclose(v[3, 0], 0):
+        return v[:,0]
+    else:
+        return v[:,0] / v[3,0]
 
 
 def reprojection_error(pt3d, pt2d, P):
@@ -286,6 +340,10 @@ def lookat(eye, center, up):
     ey = ey / np.linalg.norm(ey)
 
     ex = np.cross(ey.T, ez.T).reshape((3,1))
+    ex = ex / np.linalg.norm(ex)
+    
+    ey = np.cross(ez.T, ex.T).reshape((3,1))
+    ey = ey / np.linalg.norm(ey)
     
     t_c2w = eye
     R_c2w = np.hstack((ex, ey, ez))
