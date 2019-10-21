@@ -349,3 +349,34 @@ def lookat(eye, center, up):
     R_c2w = np.hstack((ex, ey, ez))
 
     return R_c2w.T, -R_c2w.T @ t_c2w
+
+def absolute_orientation(p, q):
+    """
+    Returns R, t, s satisfying q = s * R * p + t
+    
+    p and q must be 3xN matrices.
+    
+    Horn. Closed-form solution of absolute orientation using unit quaternions, JOSA 1987
+    """
+
+    assert len(p.shape) == len(q.shape) == 2
+    assert p.shape[0] == q.shape[0] == 3
+    assert p.shape[1] == q.shape[1]
+    
+    # Centerize
+    mp = np.mean(p, axis=1)
+    mq = np.mean(q, axis=1)
+    p = p - mp[:, None]
+    q = q - mq[:, None]
+    
+    # Scale
+    s = np.sum(np.linalg.norm(q, axis=0)) / np.sum(np.linalg.norm(p, axis=0))
+    
+    # orthogonal Procrustes problem
+    u, _, vt = np.linalg.svd(q @ (s * p).T)
+    R = u @ vt
+    
+    # translation
+    t = mq - s * (R @ mp)
+    
+    return R, t, s
