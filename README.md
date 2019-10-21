@@ -24,4 +24,4 @@
 
 ## 3D-3D
 
-7. [Absolute orientation between corresponding 3D points](./ipynb/absolute_orientation.ipynb)[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/absolute_orientation.ipynb)
+7. [Absolute orientation between corresponding 3D points](./ipynb/absolute_orientation.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/absolute_orientation.ipynb)
