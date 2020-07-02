@@ -5,7 +5,8 @@ import torch
 import gzip
 import bz2
 import pycalib
-
+import os
+import urllib.request
 
 def cam2torchA(self):
     return torch.tensor([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]])
@@ -49,6 +50,7 @@ def genCamera(X_gt):
 class TestPyCalibBa(unittest.TestCase):
     N = 20
     BAL_FILENAME = 'problem-49-7776-pre.txt.bz2'
+    BAL_URL = 'https://grail.cs.washington.edu/projects/bal/data/ladybug/problem-49-7776-pre.txt.bz2'
     ITER = 100
 
     def test_rodrigues(self):
@@ -184,8 +186,10 @@ class TestPyCalibBa(unittest.TestCase):
         self.assertTrue(loss < loss_initial)
 
 
-
     def test_bal(self):
+        if not os.path.isfile(self.BAL_FILENAME):
+            urllib.request.urlretrieve(self.BAL_URL, self.BAL_FILENAME)
+
         with bz2.open(self.BAL_FILENAME) as fp:
             model, masks, pt2ds = pycalib.ba.load_bal(fp)
         #print(model)
