@@ -13,8 +13,17 @@ def axisEqual3D(ax):
     r = maxsize/2
     for ctr, dim in zip(centers, 'xyz'):
         getattr(ax, 'set_{}lim'.format(dim))(ctr - r, ctr + r)
-        
+
 def plotCamera(ax, R, t, c, scale):
+    """Plot the camera in 3D
+
+    Args:
+        ax (Axis3D): target axis
+        R: 3x3 c2w rotation matrix
+        t: 3x1 c2w translation vector
+        c: color string
+        scale: scaling factor
+    """
     if t.shape[0] != 1:
         t = t.T
 
