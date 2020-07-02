@@ -6,6 +6,12 @@ import torch.optim as optim
 import cv2
 import numpy as np
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+import pycalib.plot
+import pycalib.calib
+
 torch.set_default_tensor_type(torch.DoubleTensor)
 
 def skew(x):
@@ -167,7 +173,7 @@ class Camera(Module):
                 return Parameter(torch.tensor(0.0), requires_grad=False)
 
         self.rvec = Parameter(torch.from_numpy(rvec))
-        self.tvec = Parameter(torch.from_numpy(tvec))
+        self.tvec = Parameter(torch.from_numpy(tvec.reshape(-1)))
         self.fx = Parameter(torch.tensor(np.double(fx)))
         self.fy = Parameter(torch.tensor(np.double(fy))) if fy is not None else self.fx
         self.cx = Parameter(torch.tensor(np.double(cx))) if cx is not None else Parameter(torch.tensor(0.0, requires_grad=False), requires_grad=False)
@@ -200,6 +206,19 @@ class Camera(Module):
         return 'rvec={},\ntvec={},\nfx={}, fy={}, cx={}, cy={},\ndist=[{}, {}, {}, {}, {}]'.format(
             self.rvec.data.numpy(), self.tvec.data.numpy(), self.fx, self.fy, self.cx, self.cy, self.k1, self.k2, self.p1, self.p2, self.k3
         )
+
+    def w2c(self):
+        return cv2.Rodrigues(self.rvec.data.numpy())[0], self.tvec.data.numpy().reshape((3, 1))
+
+    def c2w(self):
+        R, t = self.w2c()
+        return R.T, -R.T @ t
+
+    def plot(self, ax, *, label=None, color='g', scale=1):
+        R, t = self.c2w()
+        pycalib.plot.plotCamera(ax, R, t, color, scale)
+        if label is not None:
+            ax.text(t[0], t[1], t[2], label, fontsize=32)
 
 class Projection(Module):
     """
@@ -250,8 +269,34 @@ class Projection(Module):
             #rep.append(x)
         return torch.cat(rep)#.view(-1)
 
+    def get_maxvar(self):
+        t = [c.c2w()[1] for c in self.cameras]
+        t = np.hstack(t)
+        t_min = t.min(axis=1)
+        t_max = t.max(axis=1)
+        return (t_max - t_min).max()
 
-def load_bal(fp):
+    def plot(self, ax, *, scale=-1):
+        if scale < 0:
+            s = self.get_maxvar()
+            if s > 0:
+                scale = 0.05 / s
+            else:
+                s = 1
+
+        cmap = plt.get_cmap("tab10")
+        for i, c in enumerate(self.cameras):
+            c.plot(ax, label=f'cam{i}', color=cmap(i), scale=scale)
+        p = self.pt3d.data.numpy()
+        ax.plot(p[0,:], p[1,:], p[2,:], ".", color='black')
+
+    def plot_fig(self, *, scale=-1):
+        fig = plt.figure()
+        ax = Axes3D(fig)
+        self.plot(ax, scale=scale)
+        return fig, ax
+
+def load_bal(fp, *, use_initial_pose=True, need_uv_flip=True):
     # http://grail.cs.washington.edu/projects/bal/
 
     # load all lines
@@ -263,13 +308,16 @@ def load_bal(fp):
 
     # 2D observations
     observations = np.array([np.loadtxt(lines[i:i+1]) for i in np.arange(curr, curr+num_observations)])
-    assert observations.shape == (num_observations, 4)
     curr += num_observations
+    assert observations.shape == (num_observations, 4)
+    assert np.max(observations[:, 1]) == num_points - 1
+    assert np.min(observations[:, 1]) == 0
+    assert len(np.unique(observations[:, 1].astype(np.int32))) == num_points
 
     # Cameras
     cameras = np.array([np.loadtxt(lines[i:i+9]) for i in np.arange(curr, curr+num_cameras*9, 9)])
-    assert cameras.shape == (num_cameras, 9)
     curr += num_cameras*9
+    assert cameras.shape == (num_cameras, 9)
 
     # 3D points
     points = np.array([np.loadtxt(lines[i:i+3]) for i in np.arange(curr, curr+num_points*3, 3)])
@@ -283,6 +331,46 @@ def load_bal(fp):
     mask[observations[:, 0].astype(np.int), observations[:, 1].astype(np.int)] = 1
     assert np.count_nonzero(mask) == num_observations
 
+    # Do we need to flip u,v directions?  (original BAL requires this since its projection model is p = -P / P.z)
+    if need_uv_flip:
+        observations[:, 2:] = - observations[:, 2:]
+
+    # Do we guess the initial pose by ourselves?
+    if use_initial_pose is False:
+        def camD(i):
+            D = np.zeros(5)
+            D[:2] = cameras[i, 7:9]
+            return D
+
+        K = []
+        D = []
+        for i in range(num_cameras):
+            k = np.eye(3)
+            k[0, 0] = k[1, 1] = cameras[i, 6]
+            K.append(k)
+
+            d = np.zeros(5)
+            d[:2] = cameras[i, 7:9]
+            D.append(d)
+        K = np.array(K)
+        D = np.array(D)
+
+        R, t, X = pycalib.calib.excalibN(K, D, observations)
+        print(X.shape)
+        print(num_points)
+        assert len(R) == num_cameras
+        assert len(t) == num_cameras
+        assert len(X) == num_points
+        assert X.shape == points.shape
+
+        for i in range(num_cameras):
+            cameras[i, 0:3] = cv2.Rodrigues(R[i])[0].reshape(-1)
+            cameras[i, 3:6] = t[i].reshape(-1)
+        points = X
+
+
+
+
     # build the model
     cams = []
     for i in range(num_cameras):
@@ -290,7 +378,7 @@ def load_bal(fp):
         cams.append(cam)
 
     masks = torch.from_numpy(mask)
-    pt2ds = torch.from_numpy(-observations[:, 2:])
+    pt2ds = torch.from_numpy(observations[:, 2:])
     assert masks.shape == (num_cameras, num_points)
 
     model = Projection(cams, points.T)
