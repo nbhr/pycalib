@@ -65,8 +65,8 @@ def recoverPose2(E, n1, n2, K1, K2, mask):
             R2_est = R2x
             t2_est = t2x
             X_est = Xx
-            
-    return R2_est, t2_est
+
+    return R2_est, t2_est, X_est
 
 def excalib2(p1, p2, A1, d1, A2, d2):
     """
@@ -85,8 +85,8 @@ def excalib2(p1, p2, A1, d1, A2, d2):
     E = E / np.linalg.norm(E)
 
     # Decompose E
-    R, t = recoverPose2(E, n1, n2, A1, A2, mask=status)
-    return R, t, E, status
+    R, t, X = recoverPose2(E, n1, n2, A1, A2, mask=status)
+    return R, t, E, status, X
 
 def skew(x):
     """
@@ -268,7 +268,7 @@ def triangulate(pt2d, P):
         x[0,:] = P[i][0,:] - pt2d[i][0] * P[i][2,:]
         x[1,:] = P[i][1,:] - pt2d[i][1] * P[i][2,:]
         AtA += x.T @ x
-    
+
     _, v = np.linalg.eigh(AtA)
     if np.isclose(v[3, 0], 0):
         return v[:,0]
@@ -286,6 +286,95 @@ def reprojection_error(pt3d, pt2d, P):
         x[1] -= pt2d[i][1]
         err.append(x[0:2])
     return err
+
+
+def excalibN(A, D, observations):
+    """Calibrate N cameras from 2D correspondences
+    Args:
+        A: N x 3 x 3 matrix describing the N intrinsic parameters
+        D: N x (3 or 5) matrix describing the N dist coeffs
+        observations: M x 4 matrix describing M 2D observations in M x [camera id, point id, u, v] format
+    """
+    Nc = A.shape[0]
+    assert A.ndim == 3
+    assert A.shape == (Nc, 3, 3)
+    assert D.ndim == 2
+    assert D.shape[0] == Nc
+    assert observations.ndim == 2
+    assert observations.shape[1] == 4
+
+    def reproj_error(A, R, t, X, x):
+        y = R @ X + t
+        y[:2,:] /= y[2,:]
+        return np.array([y[0,:] - x[0,:], y[1,:] - x[1,:]])
+
+    # pairwise calibration
+    Rt_pairs = dict()
+    for i in range(Nc - 1):
+        # pid, u, v
+        oi = observations[observations[:, 0] == i][:,1:]
+        for j in range(i + 1, Nc):
+            # pid, u, v
+            oj = observations[observations[:, 0] == j][:,1:]
+            _, idx_i, idx_j = np.intersect1d(oi[:, 0], oj[:, 0], assume_unique=True, return_indices=True)
+            if len(idx_i) < 8:
+                continue
+            xi = oi[idx_i][:, 1:]
+            xj = oj[idx_j][:, 1:]
+            R, t, _, _, x3d = excalib2(xi, xj, A[i], D[i], A[j], D[j])
+
+            # debug
+            #ei = reproj_error(A[i], np.eye(3), np.zeros((3, 1)), x3d, xi.T)
+            #ej = reproj_error(A[j], R, t, x3d, xj.T)
+            #e = np.sqrt(np.linalg.norm(ei)+np.linalg.norm(ej)) / len(idx_i)
+            #print(f'{i}-{j} -> {e}')
+            #print(- R @ t)
+
+
+            Rt_pairs[i, j] = np.hstack((R, t))
+
+    # Registration
+    R, t, err_r, err_t = pose_registration(Nc, Rt_pairs)
+
+    # Transform to make Camera0 be WCS
+    R_est = []
+    t_est = []
+
+    for c in reversed(range(Nc)):
+        Rx, tx = relativize(R[:3, :3], t[:3], R[3*c:3*c+3, :3], t[3*c:3*c+3])
+        R_est.append(Rx)
+        t_est.append(tx)
+    R_est = np.array(R_est[::-1])
+    t_est = np.array(t_est[::-1])
+
+    # This estimation is up-to-scale.  So normalize by the cam1-cam2 distance.
+    for c in reversed(range(Nc)):
+        t_est[c] /= np.linalg.norm(t_est[1])
+
+    # Projection matrix
+    P_est = []
+    for i in range(Nc):
+        P_est.append(A[i] @ np.hstack((R_est[i], t_est[i])))
+
+    # Triangulate 3D points
+    PIDs = np.unique(observations[:, 1].astype(np.int32))
+    print('pid', PIDs.shape)
+    Y_est = []
+    for pid in sorted(PIDs):
+        o = observations[observations[:, 1] == pid]
+        c = o[:, 0].astype(np.int)
+        x = o[:, 2:]
+        p = []
+        for i in c:
+            p.append(P_est[i])
+        p = np.array(p)
+        y = triangulate(x, p)
+        Y_est.append(y)
+
+    Y_est = np.array(Y_est).T
+    Y_est = Y_est[:3,:] / Y_est[3,:]
+
+    return R_est, t_est, Y_est.T
 
 
 class Camera:
