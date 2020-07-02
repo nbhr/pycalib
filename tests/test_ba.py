@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import torch
 import gzip
+import bz2
 import pycalib
 
 
@@ -47,7 +48,7 @@ def genCamera(X_gt):
 
 class TestPyCalibBa(unittest.TestCase):
     N = 20
-    BAL_FILENAME = 'problem-49-7776-pre.txt.gz'
+    BAL_FILENAME = 'problem-49-7776-pre.txt.bz2'
     ITER = 100
 
     def test_rodrigues(self):
@@ -185,7 +186,7 @@ class TestPyCalibBa(unittest.TestCase):
 
 
     def test_bal(self):
-        with gzip.open(self.BAL_FILENAME) as fp:
+        with bz2.open(self.BAL_FILENAME) as fp:
             model, masks, pt2ds = pycalib.ba.load_bal(fp)
         #print(model)
 
@@ -196,7 +197,8 @@ class TestPyCalibBa(unittest.TestCase):
         masks = masks.to(device)
         pt2ds = pt2ds.to(device)
 
-        optimizer = torch.optim.Adadelta(model.parameters(), lr=1e-2)
+        #optimizer = torch.optim.Adadelta(model.parameters(), lr=1e-2)
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
         criterion = torch.nn.MSELoss()
 
         loss_initial = criterion(model.forward(masks), pt2ds)
