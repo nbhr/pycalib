@@ -51,7 +51,7 @@ class TestPyCalibBa(unittest.TestCase):
     N = 20
     BAL_FILENAME = 'problem-49-7776-pre.txt.bz2'
     BAL_URL = 'https://grail.cs.washington.edu/projects/bal/data/ladybug/problem-49-7776-pre.txt.bz2'
-    ITER = 100
+    ITER = 300
 
     def test_rodrigues(self):
         for i in range(self.N):
@@ -191,7 +191,7 @@ class TestPyCalibBa(unittest.TestCase):
             urllib.request.urlretrieve(self.BAL_URL, self.BAL_FILENAME)
 
         with bz2.open(self.BAL_FILENAME) as fp:
-            model, masks, pt2ds = pycalib.ba.load_bal(fp)
+            model, masks, pt2ds = pycalib.bal.bal_load(fp)
         #print(model)
 
         device = torch.device('cpu')
@@ -202,7 +202,7 @@ class TestPyCalibBa(unittest.TestCase):
         pt2ds = pt2ds.to(device)
 
         #optimizer = torch.optim.Adadelta(model.parameters(), lr=1e-2)
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), betas=[0.01,0.01])
         criterion = torch.nn.MSELoss()
 
         loss_initial = criterion(model.forward(masks), pt2ds)
@@ -221,8 +221,10 @@ class TestPyCalibBa(unittest.TestCase):
             loss.backward()
             # パラメータの更新
             optimizer.step()
+            if i%10 == 0:
+                print(f'iter[{i}]: {loss} px (mse)')
 
-        print('%e -> %e px (mse)' % (loss_initial, loss))
+        print(f'{loss_initial} -> {loss} px (mse)')
 
         self.assertTrue(loss < loss_initial)
         #print(model.cpu())
