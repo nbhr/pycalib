@@ -232,7 +232,7 @@ def quat2mat(q):
         [    2*x*z + 2*w*y,      2*y*z - 2*w*x,  1 - 2*x*x - 2*y*y]])
 
 
-def relativize(R0_w2c, t0_w2c, R_w2c, t_w2c):
+def rebase(R0_w2c, t0_w2c, R_w2c, t_w2c):
     """R_w2c, t_w2cをR0_w2c, t0_w2c基準に変換する．
     つまりR0_w2c, t0_w2c側を世界座標系とした場合の，R_w2c, t_w2cを得る．
     入力する各R_w2c, t_w2cは R_w2c*x + t_w2c で世界座標からローカル座標へ変換するとする．
@@ -341,7 +341,7 @@ def excalibN(A, D, observations):
     t_est = []
 
     for c in reversed(range(Nc)):
-        Rx, tx = relativize(R[:3, :3], t[:3], R[3*c:3*c+3, :3], t[3*c:3*c+3])
+        Rx, tx = rebase(R[:3, :3], t[:3], R[3*c:3*c+3, :3], t[3*c:3*c+3])
         R_est.append(Rx)
         t_est.append(tx)
     R_est = np.array(R_est[::-1])
