@@ -439,7 +439,7 @@ def lookat(eye, center, up):
 
     return R_c2w.T, -R_c2w.T @ t_c2w
 
-def absolute_orientation(p, q):
+def absolute_orientation(p, q, *, no_scaling=False):
     """
     Returns R, t, s satisfying q = s * R * p + t
     
@@ -459,7 +459,10 @@ def absolute_orientation(p, q):
     q = q - mq[:, None]
     
     # Scale
-    s = np.sum(np.linalg.norm(q, axis=0)) / np.sum(np.linalg.norm(p, axis=0))
+    if no_scaling is False:
+        s = np.sum(np.linalg.norm(q, axis=0)) / np.sum(np.linalg.norm(p, axis=0))
+    else:
+        s = 1
     
     # orthogonal Procrustes problem
     u, _, vt = np.linalg.svd(q @ (s * p).T)
