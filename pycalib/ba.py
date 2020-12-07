@@ -1,10 +1,7 @@
-import torch
-from torch.nn import Module, ModuleList, ParameterList
-from torch.nn.parameter import Parameter
-import torch.optim as optim
-
 import cv2
 import numpy as np
+from scipy.sparse import lil_matrix
+from scipy.optimize import least_squares
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -12,288 +9,105 @@ from mpl_toolkits.mplot3d import Axes3D
 import pycalib.plot
 import pycalib.calib
 
-torch.set_default_tensor_type(torch.DoubleTensor)
+# https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
-def skew(x):
+def rotate(points, rot_vecs):
+    """Rotate points by given rotation vectors.
+
+    Rodrigues' rotation formula is used.
+    see also https://github.com/strasdat/Sophus/blob/master/sophus/so3.hpp#L257
     """
-    Return skew-symmetric matrix
+    theta = np.linalg.norm(rot_vecs, axis=1)[:, np.newaxis]
+    with np.errstate(invalid='ignore'):
+        v = rot_vecs / theta
+        v = np.nan_to_num(v)
+    dot = np.sum(points * v, axis=1)[:, np.newaxis]
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+
+    return cos_theta * points + sin_theta * np.cross(v, points) + dot * (1 - cos_theta) * v
+
+def project(points, camera_params):
+    """Convert 3-D points to 2-D by projecting onto images."""
+
+    assert camera_params.shape[1] == 15
+
+    points_proj = rotate(points, camera_params[:, :3])
+    points_proj += camera_params[:, 3:6]
+    points_proj = points_proj[:, :2] / points_proj[:, 2, np.newaxis]
+
+    fx = camera_params[:, 6]
+    fy = camera_params[:, 7]
+    cx = camera_params[:, 8]
+    cy = camera_params[:, 9]
+    k1 = camera_params[:, 10]
+    k2 = camera_params[:, 11]
+    p1 = camera_params[:, 12]
+    p2 = camera_params[:, 13]
+    k3 = camera_params[:, 14]
+
+    n = np.sum(points_proj**2, axis=1)
+    n2 = n**2
+    kdist = 1 + k1 * n + k2 * n2 + k3 * n**3
+    pdist = 2 * points_proj[:,0] * points_proj[:,1]
+    u = points_proj[:,0]*kdist + p1*pdist + p2*(n2+2*points_proj[:,0]**2)
+    v = points_proj[:,1]*kdist + p2*pdist + p1*(n2+2*points_proj[:,0]**2)
+
+    points_proj[:, 0] = fx*u + cx
+    points_proj[:, 1] = fy*v + cy
+
+    return points_proj
+
+def reprojection_error(params, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, cam0):
+    """Compute residuals.
+
+    `params` contains camera parameters and 3-D coordinates.
     """
-    return torch.tensor([[
-        [0, -x[2], x[1]],
-        [x[2], 0, -x[0]],
-        [-x[1], x[0], 0]
-    ]], device=x.device)
-
-def rvec2mat(rvec):
-    """
-    Convert Rodrigues vector to rotation matrix.
-    This is identical to vector-to-matrix convertion by cv2.Rodrigues().
-
-    Parameters
-    ----------
-    rvec : 1x3 or 3x1 torch.tensor
-        Rodrigues vector
-
-    Returns
-    -------
-    rmat : 3x3 torch.tensor
-        Rotation matrix
-    """
-
-    # see also https://github.com/strasdat/Sophus/blob/master/sophus/so3.hpp#L257
-
-    # https://discuss.pytorch.org/t/how-to-normalize-embedding-vectors/1209/2
-    device = rvec.device
-    rvec = rvec.reshape(3)
-    theta = torch.norm(rvec, 2)
-    if theta != 0:
-        rvec = rvec / theta
-    #else:
-    #   No need to return here, since the following equation automatically yields
-    #   eye(3) for rvec == 0. If returns, it disconnects the autograd graph.
-    #   return torch.eye(3)
-
-    c_th = torch.cos(theta)
-    s_th = torch.sin(theta)
-    return c_th * torch.eye(3).to(device) + (1-c_th) * torch.ger(rvec, rvec) + s_th * skew(rvec)
+    n_params = np.sum(mask)
+    camera_params = cam0.reshape((n_cameras, 15))
+    camera_params[:, mask] = params[:n_cameras * n_params].reshape((n_cameras, n_params))
+    # camera_params = params[:n_cameras * 15].reshape((n_cameras, 15))
+    points_3d = params[n_cameras * n_params:].reshape((n_points, 3))
+    points_proj = project(points_3d[point_indices], camera_params[camera_indices])
+    return (points_proj - points_2d).ravel()
 
 
-def distort(pt3d, d):
-    """
-    Distort points in normalized camera. Identical to cv2.projectPoints(pt3d, np.zeros(3),
-    np.zeros(3), np.eye(3), distCoeffs).
+def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len=15):
+    m = camera_indices.size * 2
+    n = n_cameras * cam_param_len + n_points * 3
+    A = lil_matrix((m, n), dtype=int)
 
-    Parameters
-    ----------
-    pt3d : 3xN torch.tensor
-        Ideal positions (not necessarily in normalized camera, i.e., pt3d[3,:] is
-        not required to be 1 since this function first does x/=z and y/=z anyway)
-    d : list of torch.tensor
-        Distortion coeffs (k1, k2, p1, p2, k3)
+    i = np.arange(camera_indices.size)
+    for s in range(cam_param_len):
+        A[2 * i, camera_indices * cam_param_len + s] = 1
+        A[2 * i + 1, camera_indices * cam_param_len + s] = 1
 
-    Returns
-    -------
-    n : 2xN torch.tensor
-        Distorted points in normalized camera
-    """
-    pt3d = pt3d.reshape((3, -1))
-    x1 = pt3d[0, :] / pt3d[2, :]
-    y1 = pt3d[1, :] / pt3d[2, :]
-    r2 = (x1*x1 + y1*y1)
-    r4 = r2*r2
-    r6 = r4*r2
-    kdist = 1 + d[0]*r2 + d[1]*r4 + d[4]*r6
-    pdist = 2*x1*y1
-    x2 = x1*kdist + d[2]*pdist + d[3]*(r2+2*x1*x1)
-    y2 = y1*kdist + d[3]*pdist + d[2]*(r2+2*y1*y1)
-    return x2, y2
+    for s in range(3):
+        A[2 * i, n_cameras * cam_param_len + point_indices * 3 + s] = 1
+        A[2 * i + 1, n_cameras * cam_param_len + point_indices * 3 + s] = 1
 
+    return A
 
-def projectPoints(pt3d, rvec, tvec, fx, fy, cx, cy, distCoeffs):
-    """
-    Project 3D points in WCS to image. Identical to cv2.projectPoints(pt3d, rvec, tvec,
-    cameraMatrix, distCoeffs), where cameraMatrix = [[fx, 0, cx], [0, fy, cy], [0, 0, 1]].
+def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None):
+    assert camera_params.shape[1] == 15
 
-    Parameters
-    ----------
-    pt3d : 3xN torch.tensor
-        3D points in world coordinate system
-    rvec : 1x3 or 3x1 torch.tensor
-        Rodrigues vector representing world-to-camera conversion
-    tvec : 1x3 or 3x1 torch.tensor
-        Translation vector representing world-to-camera conversion
-    fx : torch.tensor
-        Focal length (aka alpha)
-    fy : torch.tensor
-        Focal length (aka beta)
-    cx : torch.tensor
-        principal point (aka u0)
-    cy : torch.tensor
-        principal point (aka v0)
-    distCoeffs : 1x5 or 5x1 torch.tensor
-        Distortion coeffs (k1, k2, p1, p2, k3)
+    n_cameras = camera_params.shape[0]
+    n_points = points_3d.shape[0]
 
-    Returns
-    -------
-    pt2d : 2xN torch.tensor
-        Image points
-    """
-    R = rvec2mat(rvec)
-    u, v = distort(torch.matmul(R, pt3d) + tvec.unsqueeze(1), distCoeffs)
-    return torch.stack([fx*u + cx, fy*v + cy])
+    if mask is None:
+        mask = np.ones(camera_params.shape[1], dtype=bool)
+    assert mask.dtype == bool
+    assert len(mask) == camera_params.shape[1]
 
+    camera_params0 = camera_params.copy()
 
-class Camera(Module):
-    """
-    Camera
+    cam_param_len = np.sum(mask)
+    A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len)
 
-    Attributes
-    ----------
-    rvec : 1x3 or 3x1 torch.tensor
-        Rodrigues vector representing world-to-camera conversion
-    tvec : 1x3 or 3x1 torch.tensor
-        Translation vector representing world-to-camera conversion
-    fx : torch.tensor
-        Focal length (aka alpha)
-    fy : torch.tensor
-        Focal length (aka beta)
-    cx : torch.tensor
-        principal point (aka u0)
-    cy : torch.tensor
-        principal point (aka v0)
-    distCoeffs : 1x5 or 5x1 torch.tensor
-        Distortion coeffs (k1, k2, p1, p2, k3)
-    """
+    x0 = np.hstack((camera_params[:, mask].ravel(), points_3d.ravel()))
 
-    def __init__(self, rvec, tvec, fx, fy, cx, cy, distCoeffs):
-        """
-        Parameters
-        ----------
-        rvec : 1x3 or 3x1 numpy.ndarray
-            Rodrigues vector representing world-to-camera conversion
-        tvec : 1x3 or 3x1 numpy.ndarray
-            Translation vector representing world-to-camera conversion
-        fx : double
-            Focal length (aka alpha)
-        fy : double or None
-            Focal length (aka beta)
-        cx : double
-            principal point (aka u0)
-        cy : double
-            principal point (aka v0)
-        distCoeffs : numpy.ndarray of size 1, 2, ..., or 5
-            Distortion coeffs (k1, k2, p1, p2, k3). If the size is less than 5, the higher coeffs are fixed to zero.
-        """
-        super(Camera, self).__init__()
+    res = least_squares(pycalib.ba.reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, camera_params0))
 
-        def get_d(distCoeffs, i):
-            if distCoeffs is not None and distCoeffs.size > i:
-                return Parameter(torch.tensor(distCoeffs[i]))
-            else:
-                return Parameter(torch.tensor(0.0), requires_grad=False)
-
-        self.rvec = Parameter(torch.from_numpy(rvec))
-        self.tvec = Parameter(torch.from_numpy(tvec.reshape(-1)))
-        self.fx = Parameter(torch.tensor(np.double(fx)))
-        self.fy = Parameter(torch.tensor(np.double(fy))) if fy is not None else self.fx
-        self.cx = Parameter(torch.tensor(np.double(cx))) if cx is not None else Parameter(torch.tensor(0.0, requires_grad=False), requires_grad=False)
-        self.cy = Parameter(torch.tensor(np.double(cy))) if cy is not None else Parameter(torch.tensor(0.0, requires_grad=False), requires_grad=False)
-        self.k1 = get_d(distCoeffs, 0)
-        self.k2 = get_d(distCoeffs, 1)
-        self.p1 = get_d(distCoeffs, 2)
-        self.p2 = get_d(distCoeffs, 3)
-        self.k3 = get_d(distCoeffs, 4)
-
-        self.distCoeffs = [self.k1, self.k2, self.p1, self.p2, self.k3]
-
-    def forward(self, pt3d):
-        """
-        Project 3D points in WCS to the image plane
-
-        Parameters
-        ----------
-        pt3d : 3xN torch.tensor
-            3D points in world coordinate system
-
-        Returns
-        -------
-        pt2d : 2xN torch.tensor
-            Image points
-        """
-        return projectPoints(pt3d, self.rvec, self.tvec, self.fx, self.fy, self.cx, self.cy, self.distCoeffs)
-
-    def extra_repr(self):
-        return 'rvec={},\ntvec={},\nfx={}, fy={}, cx={}, cy={},\ndist=[{}, {}, {}, {}, {}]'.format(
-            self.rvec.data.numpy(), self.tvec.data.numpy(), self.fx, self.fy, self.cx, self.cy, self.k1, self.k2, self.p1, self.p2, self.k3
-        )
-
-    def w2c(self):
-        return cv2.Rodrigues(self.rvec.data.numpy())[0], self.tvec.data.numpy().reshape((3, 1))
-
-    def c2w(self):
-        R, t = self.w2c()
-        return R.T, -R.T @ t
-
-    def plot(self, ax, *, label=None, color='g', scale=1):
-        R, t = self.c2w()
-        pycalib.plot.plotCamera(ax, R, t, color, scale)
-        if label is not None:
-            ax.text(t[0], t[1], t[2], label, fontsize=32)
-
-class Projection(Module):
-    """
-    Projection of 3D points to multiple cameras with visibility mask
-    """
-    def __init__(self, cameras, pt3d):
-        """
-        Parameters
-        ----------
-        cameras : list of Camera objects
-            Cameras observing the 3D points in WCS
-        pt3d : 3xN torch.tensor
-            3D points in WCS
-        """
-        super(Projection, self).__init__()
-        self.Nc = len(cameras)
-        self.Np = pt3d.shape[1]
-        self.cameras = ModuleList(cameras)
-        self.pt3d = Parameter(torch.from_numpy(pt3d))
-        assert pt3d.ndim == 2
-        assert pt3d.shape[0] == 3
-
-    def forward(self, mask):
-        """
-        Project 3D points specified by visibility mask
-
-        Parameters
-        ----------
-        mask : Nc x Np torch.tensor or numpy.ndarray
-            Binary visibility mask. If (i, j) is non-zero, the j-th 3D point is projected to
-            the i-th camera.
-
-        Returns
-        -------
-        pt2d : Mx2 torch.tensor
-            (u,v) positions of M projected points, where M = np.count_nonzero(mask).
-            The size is Mx2, i.e., [[u0, v0], [u1, v1], [u2, v2], ...]
-        """
-        # mask is a binary Nc x Np matrix
-        assert mask.dim() == 2
-        assert mask.shape == (self.Nc, self.Np)
-        rep = []
-        for c in range(self.Nc):
-            idx = mask[c, :].nonzero()
-            X = self.pt3d[:, idx].squeeze()
-            x = self.cameras[c](X)
-            rep.append(x.transpose(0, 1))
-            #rep.append(x)
-        return torch.cat(rep)#.view(-1)
-
-    def get_maxvar(self):
-        t = [c.c2w()[1] for c in self.cameras]
-        t = np.hstack(t)
-        t_min = t.min(axis=1)
-        t_max = t.max(axis=1)
-        return (t_max - t_min).max()
-
-    def plot(self, ax, *, scale=-1):
-        if scale < 0:
-            s = self.get_maxvar()
-            if s > 0:
-                scale = 0.05 / s
-            else:
-                s = 1
-
-        cmap = plt.get_cmap("tab10")
-        for i, c in enumerate(self.cameras):
-            c.plot(ax, label=f'cam{i}', color=cmap(i), scale=scale)
-        p = self.pt3d.data.numpy()
-        ax.plot(p[0,:], p[1,:], p[2,:], ".", color='black')
-
-    def plot_fig(self, *, scale=-1):
-        fig = plt.figure()
-        ax = Axes3D(fig)
-        self.plot(ax, scale=scale)
-        return fig, ax
+    return res
 
 

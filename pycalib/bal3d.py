@@ -1,3 +1,4 @@
+"""
 import cv2
 import numpy as np
 import torch
@@ -43,3 +44,4 @@ def bal3d_load_numpy(fp, *, need_uv_flip=True):
         observations[:, 3:] = - observations[:, 3:]
 
     return model_points, model_poses, observations, mask
+"""

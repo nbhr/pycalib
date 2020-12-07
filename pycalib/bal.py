@@ -1,97 +1,90 @@
 import cv2
 import numpy as np
-import torch
-
 import pycalib
 
-def bal_recalib(cameras, observations, mask):
-    num_cameras = len(cameras)
+def bal_recalib(camera_params, points_2d, camera_indices, point_indices):
+    num_cameras = len(camera_params)
 
     K = []
     D = []
     for i in range(num_cameras):
         k = np.eye(3)
-        k[0, 0] = k[1, 1] = cameras[i, 6]
+        k[0, 0] = k[1, 1] = camera_params[i, 6]
         K.append(k)
 
         d = np.zeros(5)
-        d[:2] = cameras[i, 7:9]
+        d[:2] = camera_params[i, 7:9]
         D.append(d)
     K = np.array(K)
     D = np.array(D)
 
-    R, t, X = pycalib.calib.excalibN(K, D, observations)
+    R, t, X = pycalib.calib.excalibN(K, D, np.hstack([camera_indices, point_indices, points_2d]))
     assert len(R) == num_cameras
     assert len(t) == num_cameras
 
-    new_cameras = cameras.copy()
+    new_cameras = camera_params.copy()
     for i in range(num_cameras):
         new_cameras[i, 0:3] = cv2.Rodrigues(R[i])[0].reshape(-1)
         new_cameras[i, 3:6] = t[i].reshape(-1)
 
     return new_cameras, X
 
+# https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
+def read_bal_data(file):
+    n_cameras, n_points, n_observations = map(
+        int, file.readline().split())
+
+    camera_indices = np.empty(n_observations, dtype=int)
+    point_indices = np.empty(n_observations, dtype=int)
+    points_2d = np.empty((n_observations, 2))
+
+    for i in range(n_observations):
+        camera_index, point_index, x, y = file.readline().split()
+        camera_indices[i] = int(float(camera_index))
+        point_indices[i] = int(float(point_index))
+        points_2d[i] = [float(x), float(y)]
+
+    camera_params = np.empty(n_cameras * 9)
+    for i in range(n_cameras * 9):
+        camera_params[i] = float(file.readline())
+    camera_params = camera_params.reshape((n_cameras, -1))
+
+    points_3d = np.empty(n_points * 3)
+    for i in range(n_points * 3):
+        points_3d[i] = float(file.readline())
+    points_3d = points_3d.reshape((n_points, -1))
+
+    return camera_params, points_3d, camera_indices, point_indices, points_2d
+
 def bal_load_numpy(fp, *, use_initial_pose=True, need_uv_flip=True):
     # http://grail.cs.washington.edu/projects/bal/
 
-    # load all lines
-    lines = fp.readlines()
-
-    # num of cameras / points / observations from the 1st line
-    num_cameras, num_points, num_observations = [int(x) for x in lines[0].strip().split()]
-    curr = 1
-
-    # 2D observations
-    observations = np.array([np.loadtxt(lines[i:i+1]) for i in np.arange(curr, curr+num_observations)])
-    curr += num_observations
-    assert observations.shape == (num_observations, 4)
-    assert np.max(observations[:, 1]) == num_points - 1
-    assert np.min(observations[:, 1]) == 0
-    assert len(np.unique(observations[:, 1].astype(np.int32))) == num_points
-
-    # Cameras
-    cameras = np.array([np.loadtxt(lines[i:i+9]) for i in np.arange(curr, curr+num_cameras*9, 9)])
-    curr += num_cameras*9
-    assert cameras.shape == (num_cameras, 9)
-
-    # 3D points
-    points = np.array([np.loadtxt(lines[i:i+3]) for i in np.arange(curr, curr+num_points*3, 3)])
-    assert points.shape == (num_points, 3)
-
-    # Sort observations by cameras and then points
-    observations = observations[np.lexsort((observations[:, 1], observations[:, 0]))]
-
-    # Mask
-    mask = np.zeros((num_cameras, num_points), dtype=np.int)
-    mask[observations[:, 0].astype(np.int), observations[:, 1].astype(np.int)] = 1
-    assert np.count_nonzero(mask) == num_observations
+    camera_params, points_3d, camera_indices, point_indices, points_2d = read_bal_data(fp)
 
     # Do we need to flip u,v directions?  (original BAL requires this since its projection model is p = -P / P.z)
     if need_uv_flip:
-        observations[:, 2:] = - observations[:, 2:]
+        points_2d = - points_2d
 
     # Do we guess the initial pose by ourselves?
     if use_initial_pose is False:
-        cameras, points = bal_recalib(cameras, observations, mask)
-        assert points.shape == (num_points, 3)
+        camera_params, points_3d = bal_recalib(camera_params, points_2d, camera_indices, point_indices)
 
-    return cameras, observations, points, mask
+    return camera_params, points_3d, camera_indices, point_indices, points_2d
 
-def bal_load(fp, *, use_initial_pose=True, need_uv_flip=True):
-    cameras, observations, points, masks = bal_load_numpy(fp, use_initial_pose=use_initial_pose, need_uv_flip=need_uv_flip)
-    num_cameras = len(cameras)
-    num_points = len(points)
+def bal_cam9_to_cam15(camera_params):
+    """ converts cameras with 9 params (r, t, f, k1, k2) to 15 params (r, t, fx, fy, cx, cv, k1, k2, p1, p2, k3) """
+    n = camera_params.shape[0]
+    assert camera_params.shape[1] == 9
 
-    # build the model
-    cams = []
-    for i in range(num_cameras):
-        cam = pycalib.ba.Camera(cameras[i, 0:3], cameras[i, 3:6], cameras[i, 6], None, 0, 0, cameras[i, 7:9])
-        cams.append(cam)
+    c = np.zeros((n, 15))
+    m = np.ones(15, dtype=bool)
 
-    masks = torch.from_numpy(masks)
-    pt2ds = torch.from_numpy(observations[:, 2:])
-    assert masks.shape == (num_cameras, num_points)
+    c[:, :6] = camera_params[:, :6] # r, t
+    c[:, 6] = camera_params[:, 6] # fx
+    c[:, 7] = camera_params[:, 6] # fy
+    m[8:10] = False # cx, cy
+    c[:, 10:12] = camera_params[:, 7:9] # k1, k2
+    m[12:15] = False # p1, p2, k3
 
-    model = pycalib.ba.Projection(cams, points.T)
+    return c, m
 
-    return model, masks, pt2ds
