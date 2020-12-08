@@ -89,10 +89,23 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
     return A
 
 def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None):
-    assert camera_params.shape[1] == 15
-
     n_cameras = camera_params.shape[0]
     n_points = points_3d.shape[0]
+    n_observations = points_2d.shape[0]
+
+    assert camera_params.shape[1] == 15
+    assert points_3d.shape[1] == 3
+    assert points_2d.shape[1] == 2
+    assert camera_indices.shape[0] == n_observations
+    assert point_indices.shape[0] == n_observations
+
+    """
+    print(camera_params.shape)
+    print(points_3d.shape)
+    print(camera_indices.shape)
+    print(point_indices.shape)
+    print(points_2d.shape)
+    """
 
     if mask is None:
         mask = np.ones(camera_params.shape[1], dtype=bool)
@@ -108,6 +121,21 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
 
     res = least_squares(pycalib.ba.reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, camera_params0))
 
-    return res
+    n = camera_params[:, mask].size
+    x = res.x[:n]
+    camera_params[:, mask] = x.reshape((n_cameras, -1))
+    points_3d = res.x[n:].reshape((-1, 3))
 
+    return camera_params, points_3d, res
 
+def gen_camera_param(rmat, tvec, K, distCoeffs):
+    x = np.zeros(15)
+    x[:3] = cv2.Rodrigues(rmat)[0].reshape(-1)
+    x[3:6] = tvec.reshape(-1)
+    x[6] = K[0,0]
+    x[7] = K[1,1]
+    x[8] = K[0,2]
+    x[9] = K[1,2]
+    x[10:15] = distCoeffs
+    return x
+    
