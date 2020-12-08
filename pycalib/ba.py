@@ -30,21 +30,21 @@ def rotate(points, rot_vecs):
 def project(points, camera_params):
     """Convert 3-D points to 2-D by projecting onto images."""
 
-    assert camera_params.shape[1] == 15
+    assert camera_params.shape[1] == 14
 
     points_proj = rotate(points, camera_params[:, :3])
     points_proj += camera_params[:, 3:6]
     points_proj = points_proj[:, :2] / points_proj[:, 2, np.newaxis]
 
     fx = camera_params[:, 6]
-    fy = camera_params[:, 7]
-    cx = camera_params[:, 8]
-    cy = camera_params[:, 9]
-    k1 = camera_params[:, 10]
-    k2 = camera_params[:, 11]
-    p1 = camera_params[:, 12]
-    p2 = camera_params[:, 13]
-    k3 = camera_params[:, 14]
+    fy = camera_params[:, 6]
+    cx = camera_params[:, 7]
+    cy = camera_params[:, 8]
+    k1 = camera_params[:, 9]
+    k2 = camera_params[:, 10]
+    p1 = camera_params[:, 11]
+    p2 = camera_params[:, 12]
+    k3 = camera_params[:, 13]
 
     n = np.sum(points_proj**2, axis=1)
     n2 = n**2
@@ -64,15 +64,15 @@ def reprojection_error(params, n_cameras, n_points, camera_indices, point_indice
     `params` contains camera parameters and 3-D coordinates.
     """
     n_params = np.sum(mask)
-    camera_params = cam0.reshape((n_cameras, 15))
+    camera_params = cam0.reshape((n_cameras, 14))
     camera_params[:, mask] = params[:n_cameras * n_params].reshape((n_cameras, n_params))
-    # camera_params = params[:n_cameras * 15].reshape((n_cameras, 15))
+    # camera_params = params[:n_cameras * 14].reshape((n_cameras, 14))
     points_3d = params[n_cameras * n_params:].reshape((n_points, 3))
     points_proj = project(points_3d[point_indices], camera_params[camera_indices])
     return (points_proj - points_2d).ravel()
 
 
-def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len=15):
+def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len=14):
     m = camera_indices.size * 2
     n = n_cameras * cam_param_len + n_points * 3
     A = lil_matrix((m, n), dtype=int)
@@ -93,7 +93,7 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     n_points = points_3d.shape[0]
     n_observations = points_2d.shape[0]
 
-    assert camera_params.shape[1] == 15
+    assert camera_params.shape[1] == 14
     assert points_3d.shape[1] == 3
     assert points_2d.shape[1] == 2
     assert camera_indices.shape[0] == n_observations
@@ -128,14 +128,30 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
 
     return camera_params, points_3d, res
 
-def gen_camera_param(rmat, tvec, K, distCoeffs):
-    x = np.zeros(15)
+def encode_camera_param(rmat, tvec, K, distCoeffs):
+    x = np.zeros(14)
     x[:3] = cv2.Rodrigues(rmat)[0].reshape(-1)
     x[3:6] = tvec.reshape(-1)
     x[6] = K[0,0]
-    x[7] = K[1,1]
-    x[8] = K[0,2]
-    x[9] = K[1,2]
-    x[10:15] = distCoeffs
+    x[7] = K[0,2]
+    x[8] = K[1,2]
+    x[9:14] = distCoeffs
     return x
     
+def decode_camera_param(x):
+    rmat = cv2.Rodrigues(x[:3])
+    tvec = x[3:6].reshape((3, 1))
+    K = np.eye(3)
+    K[0,0] = x[6]
+    K[1,1] = x[6]
+    K[0,2] = x[7]
+    K[1,2] = x[8]
+    distCoeffs = x[9:14]
+    return rmat, tvec, K, distCoeffs
+    
+def make_mask(fix_r, fix_t, fix_f, fix_u0, fix_v0, fix_k1, fix_k2, fix_p1, fix_p2, fix_k3):
+    r = np.tile(fix_r, 3)
+    t = np.tile(fix_t, 3)
+    return np.concatenate([r, t, [fix_f, fix_u0, fix_v0, fix_k1, fix_k2, fix_p1, fix_p2, fix_k3]]).astype(bool)
+
+
