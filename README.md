@@ -25,3 +25,15 @@
 ## 3D-3D
 
 7. [Absolute orientation between corresponding 3D points](./ipynb/absolute_orientation.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/absolute_orientation.ipynb)
+
+
+## If you need to write your own calibration ...
+
+1. For linear case:
+   * Use `numpy`.
+2. For non-linear (including bundule adjustment) case
+   1. Try `scipy.optimize.least_squares` first.
+      * If the system is sparse, use `jac_sparsity` option. It makes the optimization much faster even without analitical Jacobian.
+      * If it is slow, use `numba`.
+   2. Use [ceres-solver](http://ceres-solver.org/) if the computation speed is really important.
+      * Make sure the optimization is doable with `scipy` first.
