@@ -139,7 +139,7 @@ def encode_camera_param(rmat, tvec, K, distCoeffs):
     return x
     
 def decode_camera_param(x):
-    rmat = cv2.Rodrigues(x[:3])
+    rmat = cv2.Rodrigues(x[:3])[0]
     tvec = x[3:6].reshape((3, 1))
     K = np.eye(3)
     K[0,0] = x[6]
@@ -154,4 +154,56 @@ def make_mask(fix_r, fix_t, fix_f, fix_u0, fix_v0, fix_k1, fix_k2, fix_p1, fix_p
     t = np.tile(fix_t, 3)
     return np.concatenate([r, t, [fix_f, fix_u0, fix_v0, fix_k1, fix_k2, fix_p1, fix_p2, fix_k3]]).astype(bool)
 
+def excalib2_ba(p1, p2, A1, d1, A2, d2, *, verbose=0):
+    R, t, E, status, X = pycalib.calib.excalib2(p1, p2, A1, d1, A2, d2)
+    assert np.all(status == 1)
+
+    # BA
+    Nc = 2
+    Np = X.shape[1]
+
+    ## Camera parameters
+    camera_params = np.array([
+        encode_camera_param( np.eye(3), np.zeros((3,1)), A1, np.zeros(5) if d1 is None else d1 ),
+        encode_camera_param( R,         t,               A2, np.zeros(5) if d2 is None else d2 ),
+    ])
+
+    ## camera_indices[i] == the camera observes point_2d[i,:]
+    camera_indices = np.repeat(np.arange(Nc), Np)
+
+    ## point_indices[i] == the 3D point behind point_2d[i,:]
+    point_indices = np.tile(np.arange(Np), Nc)
+
+    ## Optimization target
+    ## R, t, f, u0, v0, k1, k2, p1, p2, k3
+    mask = make_mask(True, True, False, False, False, False, False, False, False, False)
+
+    ## 3D est (Np, 3)
+    X_est = X.T
+
+    ## 2D est (Nc, Np, 2)
+    x_est = np.array( [ p1.reshape((-1,2)), p2.reshape((-1, 2)) ] )
+
+    ## optim
+    cam_opt, X_opt, ret = bundle_adjustment(camera_params, X_est, camera_indices, point_indices, x_est.reshape((-1, 2)), mask=mask, verbose=verbose)
+
+    rmat1, tvec1, k1, d1 = decode_camera_param(cam_opt[0])
+    rmat2, tvec2, k2, d2 = decode_camera_param(cam_opt[1])
+
+    assert np.allclose(k1, A1)
+    assert np.allclose(k2, A2)
+    assert np.count_nonzero(d1) == 0
+    assert np.count_nonzero(d2) == 0
+
+    #c1 = R1 x + t1
+    #c2 = R2 x + t2
+    #x = R1.T @ (c1 - t1)
+    #c2 = R2 R1.T (c1 - t1) + t2
+
+    R = rmat2 @ rmat1.T
+    t = tvec2 - R @ tvec1
+    X = rmat1 @ X_opt.T  + tvec1
+    E = pycalib.calib.skew(t) @ R
+
+    return R, t, E, status, X
 
