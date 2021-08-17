@@ -92,6 +92,7 @@ def skew(x):
     """
     Returns the skew-symmetric matrix [x]_\times of vector x.
     """
+    x = x.flatten()
     return np.array([[0, -x[2], x[1]], [x[2], 0, -x[0]], [-x[1], x[0], 0]])
 
 
