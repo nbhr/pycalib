@@ -160,6 +160,8 @@ def pose_registration_T(N, Rt_pairs, R_w2c):
     _, s, vt = np.linalg.svd(k[0:3,:])
     T = k @ vt[3,:].T
     T = T / np.linalg.norm(T[3:6])
+    # overwrite noisy zeros in t0
+    T[0:3] = 0
 
     # fix T sign using the 1st pair
     for (i, j), Rt in Rt_pairs.items():
@@ -171,10 +173,9 @@ def pose_registration_T(N, Rt_pairs, R_w2c):
         Tj = T[3*j:3*j+3]
 
         # compare Tij with the estimated one
-        t = - Ti + Ri @ Rj.T @ Tj
-        if t @ Tij < 0:
+        tij = - Rj @ Ri.T @ Ti + Tj
+        if tij @ Tij < 0:
             T = -T
-        T[0:3] = 0
 
         # return immediately in the loop
         return T, err
@@ -233,9 +234,8 @@ def quat2mat(q):
 
 
 def rebase(R0_w2c, t0_w2c, R_w2c, t_w2c):
-    """R_w2c, t_w2cをR0_w2c, t0_w2c基準に変換する．
-    つまりR0_w2c, t0_w2c側を世界座標系とした場合の，R_w2c, t_w2cを得る．
-    入力する各R_w2c, t_w2cは R_w2c*x + t_w2c で世界座標からローカル座標へ変換するとする．
+    """Return R and t that satisfy c0 = R @ c + t. The camera c0 is specified by R0_w2c and t0_w2c, and the camera c is specified by R_w2c and t_w2c.
+    In other words, this computes the pose of camera c in the camera c0 coordinate system.
     """
     assert R0_w2c.shape == (3, 3)
     assert R_w2c.shape == (3, 3)
@@ -253,6 +253,30 @@ def rebase(R0_w2c, t0_w2c, R_w2c, t_w2c):
         R = R_w2c @ R0_w2c.T
 
     return R, t_w2c - R @ t0_w2c
+
+
+def rebase_all(R_w2c_Nx3x3, t_w2c_Nx3x1, *, normalize_scaling=False):
+    """Transform all the poses to be in the first camera coordinate system"""
+
+    R_est = []
+    t_est = []
+
+    Nc = R_w2c_Nx3x3.shape[0]
+    assert R_w2c_Nx3x3.shape == (Nc, 3, 3), R_w2c_Nx3x3.shape
+    assert t_w2c_Nx3x1.shape == (Nc, 3, 1), t_w2c_Nx3x1.shape
+
+    for c in reversed(range(Nc)):
+        Rx, tx = rebase(R_w2c_Nx3x3[0], t_w2c_Nx3x1[0], R_w2c_Nx3x3[c], t_w2c_Nx3x1[c])
+        R_est.append(Rx)
+        t_est.append(tx)
+    R_est = np.array(R_est[::-1])
+    t_est = np.array(t_est[::-1])
+
+    if normalize_scaling:
+        for c in reversed(range(Nc)):
+            t_est[c] /= np.linalg.norm(t_est[1])
+
+    return R_est, t_est
 
 
 def triangulate(pt2d, P):
