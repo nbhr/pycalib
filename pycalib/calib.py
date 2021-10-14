@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 from pycalib.util import *
+from skimage.transform import SimilarityTransform, EuclideanTransform
 
 def undistort_points(pt2d, cameraMatrix, distCoeffs):
     return cv2.undistortPoints(pt2d, cameraMatrix, distCoeffs, P=cameraMatrix)
@@ -464,36 +465,55 @@ def lookat(eye, center, up):
 
     return R_c2w.T, -R_c2w.T @ t_c2w
 
-def absolute_orientation(p, q, *, no_scaling=False):
+def absolute_orientation(p, q, no_scaling=False):
     """
     Returns R, t, s satisfying q = s * R * p + t
     
     p and q must be 3xN matrices.
-    
-    Horn. Closed-form solution of absolute orientation using unit quaternions, JOSA 1987
     """
 
-    assert len(p.shape) == len(q.shape) == 2
-    assert p.shape[0] == q.shape[0] == 3
-    assert p.shape[1] == q.shape[1]
-    
-    # Centerize
-    mp = np.mean(p, axis=1)
-    mq = np.mean(q, axis=1)
-    p = p - mp[:, None]
-    q = q - mq[:, None]
-    
-    # Scale
-    if no_scaling is False:
-        s = np.sum(np.linalg.norm(q, axis=0)) / np.sum(np.linalg.norm(p, axis=0))
+    if no_scaling:
+        st = EuclideanTransform()
     else:
-        s = 1
-    
-    # orthogonal Procrustes problem
-    u, _, vt = np.linalg.svd(q @ (s * p).T)
-    R = u @ vt
-    
-    # translation
-    t = mq - s * (R @ mp)
-    
+        st = SimilarityTransform()
+
+    st.estimate(p.T, q.T)
+    R = st.params[:3, :3]
+    t = st.params[:3, 3]
+    s = np.linalg.norm(R) / np.sqrt(3)
+    R = R / s
     return R, t, s
+
+# def absolute_orientation(p, q, *, no_scaling=False):
+#     """
+#     Returns R, t, s satisfying q = s * R * p + t
+#     
+#     p and q must be 3xN matrices.
+#     
+#     Horn. Closed-form solution of absolute orientation using unit quaternions, JOSA 1987
+#     """
+# 
+#     assert len(p.shape) == len(q.shape) == 2
+#     assert p.shape[0] == q.shape[0] == 3
+#     assert p.shape[1] == q.shape[1]
+#     
+#     # Centerize
+#     mp = np.mean(p, axis=1)
+#     mq = np.mean(q, axis=1)
+#     p = p - mp[:, None]
+#     q = q - mq[:, None]
+#     
+#     # Scale
+#     if no_scaling is False:
+#         s = np.sum(np.linalg.norm(q, axis=0)) / np.sum(np.linalg.norm(p, axis=0))
+#     else:
+#         s = 1
+#     
+#     # orthogonal Procrustes problem
+#     u, _, vt = np.linalg.svd(q @ (s * p).T)
+#     R = u @ vt
+#     
+#     # translation
+#     t = mq - s * (R @ mp)
+#     
+#     return R, t, s
