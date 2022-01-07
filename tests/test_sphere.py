@@ -28,7 +28,7 @@ class TestPyCalibSphere(unittest.TestCase):
                 c_gt = K @ X_gt.reshape((3,1))
                 c_gt = (c_gt / c_gt[2]).flatten()
         
-                img = pycalib.sphere.render_sphere(X_gt, RADIUS, K, W, H)
+                img = pycalib.render_sphere(X_gt, RADIUS, K, W, H)
                 contours, _ = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         
                 X_gt_all.append(X_gt)
@@ -37,15 +37,15 @@ class TestPyCalibSphere(unittest.TestCase):
                 cont_all.append(contours[0])
         
         for X_gt, c_gt, img, cnt in zip(X_gt_all, c_gt_all, img_all, cont_all):
-            c = pycalib.sphere.calc_sphere_center_from_ellipse(cnt, K)
+            c = pycalib.calc_sphere_center_from_ellipse(cnt, K)
             self.assertTrue(np.linalg.norm(c[:2] - c_gt[:2]) < 1.0)
 
-            c3d = pycalib.sphere.fit_sphere_center_3d_to_ellipse(cnt, K)
+            c3d = pycalib.fit_sphere_center_3d_to_ellipse(cnt, K)
             c = K @ c3d.T
             c = c / c[2]
             self.assertTrue(np.linalg.norm(c[:2] - c_gt[:2]) < 1.0)
 
-            c3d = pycalib.sphere.fit_sphere_center_3d_to_ellipse(cnt, K, resample=True)
+            c3d = pycalib.fit_sphere_center_3d_to_ellipse(cnt, K, resample=True)
             c = K @ c3d.T
             c = c / c[2]
             self.assertTrue(np.linalg.norm(c[:2] - c_gt[:2]) < 1.0)
