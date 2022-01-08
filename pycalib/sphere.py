@@ -50,10 +50,10 @@ def calc_sphere_center_from_ellipse(cnt, K, r=None):
         theta += np.pi / 2
 
     if cx == K[0,2] and cy == K[1,2]:
-        dir = np.zeros(2)
-    else:
-        dir = np.array([cx-K[0,2], cy-K[1,2]])
-        dir = dir / np.linalg.norm(dir)
+        return np.array([cx, cy])
+
+    dir = np.array([cx-K[0,2], cy-K[1,2]])
+    dir = dir / np.linalg.norm(dir)
 
     fe = np.sqrt(a**2 - b**2)
     ee = fe / np.sqrt(1 + (K[0,0]/b)**2)
