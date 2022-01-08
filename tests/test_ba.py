@@ -16,7 +16,7 @@ class TestPyCalibBa(unittest.TestCase):
 
         with bz2.open(self.BAL_FILENAME) as fp:
             camera_params, points_3d, camera_indices, point_indices, points_2d = pycalib.bal.bal_load_numpy(fp)
-        camera_params, mask = pycalib.bal.bal_cam9_to_cam15(camera_params)
+        camera_params, mask = pycalib.bal.bal_cam9_to_cam14(camera_params)
 
         # allow p1, p2, k3
         mask[12:] = True

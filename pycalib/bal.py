@@ -71,6 +71,22 @@ def bal_load_numpy(fp, *, use_initial_pose=True, need_uv_flip=True):
 
     return camera_params, points_3d, camera_indices, point_indices, points_2d
 
+def bal_cam9_to_cam14(camera_params):
+    """ converts cameras with 9 params (r, t, f, k1, k2) to 15 params (r, t, f, cx, cv, k1, k2, p1, p2, k3) """
+    n = camera_params.shape[0]
+    assert camera_params.shape[1] == 9
+
+    c = np.zeros((n, 14))
+    m = np.ones(14, dtype=bool)
+
+    c[:, :6] = camera_params[:, :6] # r, t
+    c[:, 6] = camera_params[:, 6] # f
+    m[7:9] = False # cx, cy
+    c[:, 9:11] = camera_params[:, 7:9] # k1, k2
+    m[11:14] = False # p1, p2, k3
+
+    return c, m
+
 def bal_cam9_to_cam15(camera_params):
     """ converts cameras with 9 params (r, t, f, k1, k2) to 15 params (r, t, fx, fy, cx, cv, k1, k2, p1, p2, k3) """
     n = camera_params.shape[0]

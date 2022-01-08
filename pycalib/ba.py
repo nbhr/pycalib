@@ -93,7 +93,7 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     n_points = points_3d.shape[0]
     n_observations = points_2d.shape[0]
 
-    assert camera_params.shape[1] == 14
+    assert camera_params.shape[1] == 14, camera_params.shape[1]
     assert points_3d.shape[1] == 3
     assert points_2d.shape[1] == 2
     assert camera_indices.shape[0] == n_observations

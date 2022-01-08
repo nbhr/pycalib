@@ -1,0 +1,4 @@
+# Contact
+
+Please note that this is research software and may contain bugs or other issues -- please use it at your own risk. If you experience major problems with it, you may [contact us](https://github.com/nbhr/pycalib/issues), but please note that we do not have the resources to deal with all issues.
+
