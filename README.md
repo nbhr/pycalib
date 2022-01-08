@@ -41,11 +41,16 @@ The pip installation, however, does not include examples in `./ipynb`.  To run e
 
 ## If you need to write your own calibration ...
 
-1. For linear case:
-   * Use `numpy`.
-2. For non-linear (including bundule adjustment) case
-   1. Try `scipy.optimize.least_squares` first.
-      * If the system is sparse, use `jac_sparsity` option. It makes the optimization much faster even without analitical Jacobian.
-      * If it is slow, use `numba`.
-   2. Use [ceres-solver](http://ceres-solver.org/) if the computation speed is really important.
-      * Make sure the optimization is doable with `scipy` first.
+In general, prepare some synthetic dataset, i.e., a toy example, first so that your code can return the exact solution up to the machine epsillon.  Then you can try with real data or synthetic data with noise to mimic it.
+
+1. **Linear calibration:** Use `numpy`.
+2. **Non-linear (including bundule adjustment):** Try `scipy.optimize.least_squares` first.
+   * Implement your objective function as simple as possible. You do not need to consider the computational efficiency at all.
+   * If it is unacceptably slow, try the followings in this order.
+     1. Ask yourself again before trying to make it faster.  Is it really unacceptable?  If your calibration can finish in an hour and you do not do it so often, it might be OK for example. *"Premature optimization is the root of all evil."* (D. Knuth).
+     2. Make sure that the optimization runs successfully anyway.  In what follows, double-check that the optimization results do not change.
+     3. Vectorize the computation with `numpy`, i.e., no for-loops in the objective function.
+        * or use [`numba`](https://numba.pydata.org/) (e.g. `@numba.jit`)
+     4. If the system is sparse, use `jac_sparsity` option. It makes the optimization much faster even without analitical Jacobian.
+     5. Implement the analytical Jacobian. You may want to use [maxima](http://wxmaxima-developers.github.io/wxmaxima/) to automate the calculation.
+     6. Reimplement in C++ with [ceres-solver](http://ceres-solver.org/) if the computation speed is really important.
