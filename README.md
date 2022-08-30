@@ -53,5 +53,5 @@ In general, prepare some synthetic dataset, i.e., a toy example, first so that y
      3. Vectorize the computation with `numpy`, i.e., no for-loops in the objective function.
         * or use [`numba`](https://numba.pydata.org/) (e.g. `@numba.jit`)
      4. If the system is sparse, use `jac_sparsity` option. It makes the optimization much faster even without analitical Jacobian.
-     5. Implement the analytical Jacobian. You may want to use [maxima](http://wxmaxima-developers.github.io/wxmaxima/) to automate the calculation.
+     5. Implement the analytical Jacobian. You may want to use [maxima](http://wxmaxima-developers.github.io/wxmaxima/) to automate the calculation, or you may use JAX or other autodiff solutions for this.
      6. Reimplement in C++ with [ceres-solver](http://ceres-solver.org/) if the computation speed is really important.
