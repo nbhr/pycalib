@@ -4,6 +4,7 @@ import pycalib
 
 def bal_recalib(camera_params, points_2d, camera_indices, point_indices):
     num_cameras = len(camera_params)
+    print(camera_params.shape)
 
     K = []
     D = []
@@ -18,7 +19,9 @@ def bal_recalib(camera_params, points_2d, camera_indices, point_indices):
     K = np.array(K)
     D = np.array(D)
 
-    R, t, X = pycalib.calib.excalibN(K, D, np.hstack([camera_indices, point_indices, points_2d]))
+    print(K)
+
+    R, t, X, _ = pycalib.calib.excalibN(K, D, np.hstack([camera_indices[:,None], point_indices[:,None], points_2d]))
     assert len(R) == num_cameras
     assert len(t) == num_cameras
 
@@ -30,7 +33,7 @@ def bal_recalib(camera_params, points_2d, camera_indices, point_indices):
     return new_cameras, X
 
 # https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
-def read_bal_data(file):
+def read_bal_data(file, n_camparams=9):
     n_cameras, n_points, n_observations = map(
         int, file.readline().split())
 
@@ -44,8 +47,8 @@ def read_bal_data(file):
         point_indices[i] = int(float(point_index))
         points_2d[i] = [float(x), float(y)]
 
-    camera_params = np.empty(n_cameras * 9)
-    for i in range(n_cameras * 9):
+    camera_params = np.empty(n_cameras * n_camparams)
+    for i in range(n_cameras * n_camparams):
         camera_params[i] = float(file.readline())
     camera_params = camera_params.reshape((n_cameras, -1))
 
@@ -71,8 +74,16 @@ def bal_load_numpy(fp, *, use_initial_pose=True, need_uv_flip=True):
 
     return camera_params, points_3d, camera_indices, point_indices, points_2d
 
+def bal_cam9_to_cam17(camera_params):
+    """ converts cameras with 9 params (r, t, f, k1, k2) to 17 params (r, t, f, cx, cv, k1, k2, p1, p2, k3, k4, k5, k6) """
+    n = camera_params.shape[0]
+    c, m = bal_cam9_to_cam14(camera_params)
+    c = np.hstack( [c, np.zeros((n, 3))] )
+    m = np.concatenate( [m, [False, False, False]] )
+    return c, m
+
 def bal_cam9_to_cam14(camera_params):
-    """ converts cameras with 9 params (r, t, f, k1, k2) to 15 params (r, t, f, cx, cv, k1, k2, p1, p2, k3) """
+    """ converts cameras with 9 params (r, t, f, k1, k2) to 14 params (r, t, f, cx, cv, k1, k2, p1, p2, k3) """
     n = camera_params.shape[0]
     assert camera_params.shape[1] == 9
 

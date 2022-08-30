@@ -287,6 +287,7 @@ def triangulate(pt2d, P):
     """
     N = len(pt2d)
     assert N == len(P)
+    assert N >= 2
 
     AtA = np.zeros((4, 4))
     x = np.zeros((2, 4))
@@ -411,12 +412,18 @@ def excalibN(A, D, observations):
 
     # Triangulate 3D points
     PIDs = np.unique(observations[:, 1].astype(np.int32))
-    print('pid', PIDs.shape)
     Y_est = []
+    PIDs_ok = []
     for pid in sorted(PIDs):
         o = observations[observations[:, 1] == pid]
+        if len(o) < 2:
+            continue
+        PIDs_ok.append(pid)
+
         c = o[:, 0].astype(np.int)
-        x = o[:, 2:]
+        x = o[:, 2:].copy()
+        for i in range(o.shape[0]):
+            x[i,:] = undistort_points(x[i,:].copy(), A[c[i]], D[c[i]]).reshape((-1, 2))
         p = []
         for i in c:
             p.append(P_est[i])
@@ -427,7 +434,7 @@ def excalibN(A, D, observations):
     Y_est = np.array(Y_est).T
     Y_est = Y_est[:3,:] / Y_est[3,:]
 
-    return R_est, t_est, Y_est.T
+    return R_est, t_est, Y_est.T, PIDs_ok
 
 
 class Camera:

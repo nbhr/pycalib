@@ -30,7 +30,7 @@ def rotate(points, rot_vecs):
 def project(points, camera_params):
     """Convert 3-D points to 2-D by projecting onto images."""
 
-    assert camera_params.shape[1] == 14
+    assert camera_params.shape[1] == 17
 
     points_proj = rotate(points, camera_params[:, :3])
     points_proj += camera_params[:, 3:6]
@@ -45,10 +45,14 @@ def project(points, camera_params):
     p1 = camera_params[:, 11]
     p2 = camera_params[:, 12]
     k3 = camera_params[:, 13]
+    k4 = camera_params[:, 14]
+    k5 = camera_params[:, 15]
+    k6 = camera_params[:, 16]
 
     n = np.sum(points_proj**2, axis=1)
     n2 = n**2
-    kdist = 1 + k1 * n + k2 * n2 + k3 * n**3
+    n3 = n2 * n
+    kdist = (1 + k1 * n + k2 * n2 + k3 * n3) / (1 + k4 * n + k5 * n2 + k6 * n3)
     pdist = 2 * points_proj[:,0] * points_proj[:,1]
     u = points_proj[:,0]*kdist + p1*pdist + p2*(n2+2*points_proj[:,0]**2)
     v = points_proj[:,1]*kdist + p2*pdist + p1*(n2+2*points_proj[:,0]**2)
@@ -64,15 +68,15 @@ def reprojection_error(params, n_cameras, n_points, camera_indices, point_indice
     `params` contains camera parameters and 3-D coordinates.
     """
     n_params = np.sum(mask)
-    camera_params = cam0.reshape((n_cameras, 14))
+    camera_params = cam0.reshape((n_cameras, 17))
     camera_params[:, mask] = params[:n_cameras * n_params].reshape((n_cameras, n_params))
-    # camera_params = params[:n_cameras * 14].reshape((n_cameras, 14))
+    # camera_params = params[:n_cameras * 17].reshape((n_cameras, 17))
     points_3d = params[n_cameras * n_params:].reshape((n_points, 3))
     points_proj = project(points_3d[point_indices], camera_params[camera_indices])
     return (points_proj - points_2d).ravel()
 
 
-def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len=14):
+def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len=17):
     m = camera_indices.size * 2
     n = n_cameras * cam_param_len + n_points * 3
     A = lil_matrix((m, n), dtype=int)
@@ -93,7 +97,7 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     n_points = points_3d.shape[0]
     n_observations = points_2d.shape[0]
 
-    assert camera_params.shape[1] == 14, camera_params.shape[1]
+    assert camera_params.shape[1] == 17, camera_params.shape[1]
     assert points_3d.shape[1] == 3
     assert points_2d.shape[1] == 2
     assert camera_indices.shape[0] == n_observations
@@ -119,23 +123,24 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
 
     x0 = np.hstack((camera_params[:, mask].ravel(), points_3d.ravel()))
 
-    res = least_squares(pycalib.ba.reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, camera_params0))
+    res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, camera_params0))
 
     n = camera_params[:, mask].size
     x = res.x[:n]
     camera_params[:, mask] = x.reshape((n_cameras, -1))
     points_3d = res.x[n:].reshape((-1, 3))
+    reproj = res.cost / n_observations
 
-    return camera_params, points_3d, res
+    return camera_params, points_3d, reproj, res
 
 def encode_camera_param(rmat, tvec, K, distCoeffs):
-    x = np.zeros(14)
+    x = np.zeros(17)
     x[:3] = cv2.Rodrigues(rmat)[0].reshape(-1)
     x[3:6] = tvec.reshape(-1)
     x[6] = K[0,0]
     x[7] = K[0,2]
     x[8] = K[1,2]
-    x[9:14] = distCoeffs
+    x[9:9+len(distCoeffs)] = distCoeffs
     return x
     
 def decode_camera_param(x):
@@ -146,13 +151,13 @@ def decode_camera_param(x):
     K[1,1] = x[6]
     K[0,2] = x[7]
     K[1,2] = x[8]
-    distCoeffs = x[9:14]
+    distCoeffs = x[9:17]
     return rmat, tvec, K, distCoeffs
     
-def make_mask(fix_r, fix_t, fix_f, fix_u0, fix_v0, fix_k1, fix_k2, fix_p1, fix_p2, fix_k3):
-    r = np.tile(fix_r, 3)
-    t = np.tile(fix_t, 3)
-    return np.concatenate([r, t, [fix_f, fix_u0, fix_v0, fix_k1, fix_k2, fix_p1, fix_p2, fix_k3]]).astype(bool)
+def make_mask(refine_r, refine_t, refine_f=False, refine_u0=False, refine_v0=False, refine_k1=False, refine_k2=False, refine_p1=False, refine_p2=False, refine_k3=False, refine_k4=False, refine_k5=False, refine_k6=False):
+    r = np.tile(refine_r, 3)
+    t = np.tile(refine_t, 3)
+    return np.concatenate([r, t, [refine_f, refine_u0, refine_v0, refine_k1, refine_k2, refine_p1, refine_p2, refine_k3, refine_k4, refine_k5, refine_k6]]).astype(bool)
 
 def excalib2_ba(p1, p2, A1, d1, A2, d2, *, verbose=0):
     R, t, E, status, X = pycalib.calib.excalib2(p1, p2, A1, d1, A2, d2)
@@ -175,7 +180,7 @@ def excalib2_ba(p1, p2, A1, d1, A2, d2, *, verbose=0):
     point_indices = np.tile(np.arange(Np), Nc)
 
     ## Optimization target
-    ## R, t, f, u0, v0, k1, k2, p1, p2, k3
+    ## R, t, f, u0, v0, k1, k2, p1, p2, k3, k4, k5, k6
     mask = make_mask(True, True, False, False, False, False, False, False, False, False)
 
     ## 3D est (Np, 3)
