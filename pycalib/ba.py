@@ -93,6 +93,36 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
     return A
 
 def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None):
+    """
+    Optimize camera poses and intrinsics non-linearly
+
+    Parameters
+    ----------
+    camera_params : ndarray
+        C x 17 array of camera parameters (rvec, tvec, f, u0, v0, k1, k2, p1, p2, k3, k4, k5, k6)
+    points_3d : ndarray
+        M x 3 array of 3D points
+    camera_indices : ndarray
+        N array of camera indices. points_3d[point_indices[i]] is observed by camera_indices[i] at points_2d[i]
+    point_indices : ndarray
+        N array of point indices. points_3d[point_indices[i]] is observed by camera_indices[i] at points_2d[i]
+    points_2d: ndarray
+        N x 2 array of 2D points.  points_3d[point_indices[i]] is observed by camera_indices[i] at points_2d[i]
+
+
+    Returns
+    -------
+    camera_params : ndarray
+        C x 17 array of camera parameters (rvec, tvec, f, u0, v0, k1, k2, p1, p2, k3, k4, k5, k6)
+    points_3d : ndarray
+        M x 3 array of 3D points
+    reproj : float
+        reprojection error (RMSE)
+    res : OptimizeResult
+        output of `scipy.optimize.least_squares()`
+
+    """
+
     n_cameras = camera_params.shape[0]
     n_points = points_3d.shape[0]
     n_observations = points_2d.shape[0]
@@ -101,15 +131,17 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     assert points_3d.shape[1] == 3
     assert points_2d.shape[1] == 2
     assert camera_indices.shape[0] == n_observations
+    assert np.all(camera_indices >= 0)
+    assert np.all(camera_indices < n_cameras)
     assert point_indices.shape[0] == n_observations
+    assert np.all(point_indices >= 0)
+    assert np.all(point_indices < n_points)
 
-    """
     print(camera_params.shape)
     print(points_3d.shape)
     print(camera_indices.shape)
     print(point_indices.shape)
     print(points_2d.shape)
-    """
 
     if mask is None:
         mask = np.ones(camera_params.shape[1], dtype=bool)
@@ -129,11 +161,19 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     x = res.x[:n]
     camera_params[:, mask] = x.reshape((n_cameras, -1))
     points_3d = res.x[n:].reshape((-1, 3))
-    reproj = res.cost / n_observations
 
-    return camera_params, points_3d, reproj, res
+    e = reprojection_error(res.x, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, camera_params0).reshape((-1, 2))
+    e = np.linalg.norm(e, axis=1)
+    assert( len(e) == n_observations )
+    e = np.sqrt(np.mean(e))
+
+    return camera_params, points_3d, e , res
 
 def encode_camera_param(rmat, tvec, K, distCoeffs):
+    """
+    Convert camera parameters for optimization (mat -> 17 params)
+    """
+
     x = np.zeros(17)
     x[:3] = cv2.Rodrigues(rmat)[0].reshape(-1)
     x[3:6] = tvec.reshape(-1)
@@ -144,6 +184,10 @@ def encode_camera_param(rmat, tvec, K, distCoeffs):
     return x
     
 def decode_camera_param(x):
+    """
+    Convert optimized camera parameters (17 params -> mat)
+    """
+
     rmat = cv2.Rodrigues(x[:3])[0]
     tvec = x[3:6].reshape((3, 1))
     K = np.eye(3)
@@ -154,11 +198,45 @@ def decode_camera_param(x):
     distCoeffs = x[9:17]
     return rmat, tvec, K, distCoeffs
     
-def make_mask(refine_r, refine_t, refine_f=False, refine_u0=False, refine_v0=False, refine_k1=False, refine_k2=False, refine_p1=False, refine_p2=False, refine_k3=False, refine_k4=False, refine_k5=False, refine_k6=False):
-    r = np.tile(refine_r, 3)
-    t = np.tile(refine_t, 3)
-    return np.concatenate([r, t, [refine_f, refine_u0, refine_v0, refine_k1, refine_k2, refine_p1, refine_p2, refine_k3, refine_k4, refine_k5, refine_k6]]).astype(bool)
+def make_mask(r, t, *, f=False, u0=False, v0=False, k1=False, k2=False, p1=False, p2=False, k3=False, k4=False, k5=False, k6=False):
+    """
+    Generate a mask to indicate the parameters to be optimized
 
+    Parameters
+    ----------
+    r : bool
+        Optimize the rotation matrix if True
+    t : bool
+        Optimize the translation vector if True
+    f : bool
+        Optimize the focal length if True
+    u0 : bool
+        Optimize u0 if True
+    v0 : bool
+        Optimize v0 if True
+    k1 : bool
+        Optimize k1 if True
+    k2 : bool
+        Optimize k2 if True
+    p1 : bool
+        Optimize p1 if True
+    p2 : bool
+        Optimize p2 if True
+    k3 : bool
+        Optimize k3 if True
+    k4 : bool
+        Optimize k4 if True
+    k5 : bool
+        Optimize k5 if True
+    k6 : bool
+        Optimize k6 if True
+    """
+
+    r = np.tile(r, 3)
+    t = np.tile(t, 3)
+    return np.concatenate([r, t, [f, u0, v0, k1, k2, p1, p2, k3, k4, k5, k6]]).astype(bool)
+
+"""
 def excalib2_ba(p1, p2, A1, d1, A2, d2, *, verbose=0):
     R, t, E, status, X = pycalib.calib.excalib2(p1, p2, A1, d1, A2, d2)
     assert np.all(status == 1)
@@ -213,4 +291,5 @@ def excalib2_ba(p1, p2, A1, d1, A2, d2, *, verbose=0):
     E = pycalib.calib.skew(t) @ R
 
     return R, t, E, status, X
+"""
 

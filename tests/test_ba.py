@@ -15,7 +15,10 @@ class TestPyCalibBa(unittest.TestCase):
             urllib.request.urlretrieve(self.BAL_URL, self.BAL_FILENAME)
 
         with bz2.open(self.BAL_FILENAME) as fp:
-            camera_params, points_3d, camera_indices, point_indices, points_2d = pycalib.bal.bal_load_numpy(fp)
+            camera_params, points_3d, camera_indices, point_indices, points_2d = pycalib.bal.bal_read(fp)
+
+        print('flipping UV')
+        points_2d = pycalib.bal.bal_flip_uv(points_2d)
         camera_params, mask = pycalib.bal.bal_cam9_to_cam17(camera_params)
 
         # allow k1, k2, p1, p2, k3

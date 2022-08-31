@@ -1,25 +1,35 @@
+import sys
 import cv2
 import numpy as np
 import pycalib
 
-def bal_recalib(camera_params, points_2d, camera_indices, point_indices):
+def bal_recalib(camera_params, camera_indices, point_indices, points_2d):
     num_cameras = len(camera_params)
-    print(camera_params.shape)
+    assert camera_params.ndim == 2
+    assert len(camera_indices) == len(point_indices)
+    assert len(camera_indices) == len(points_2d)
+    assert points_2d.ndim == 2
+    assert points_2d.shape[1] == 2
+
+
+    if camera_params.shape[1] ==9:
+        # BAL -> full camera parameters
+        c = []
+        for i in camera_params:
+            c.append( bal_cam9_to_cam17(i) )
+        camera_params = np.array(c)
+    assert camera_params.shape[1] == 17
+
 
     K = []
     D = []
-    for i in range(num_cameras):
-        k = np.eye(3)
-        k[0, 0] = k[1, 1] = camera_params[i, 6]
+    for c in camera_params:
+        _, _, k, d= pycalib.ba.decode_camera_param(c)
         K.append(k)
-
-        d = np.zeros(5)
-        d[:2] = camera_params[i, 7:9]
         D.append(d)
     K = np.array(K)
     D = np.array(D)
 
-    print(K)
 
     R, t, X, _ = pycalib.calib.excalibN(K, D, np.hstack([camera_indices[:,None], point_indices[:,None], points_2d]))
     assert len(R) == num_cameras
@@ -32,8 +42,13 @@ def bal_recalib(camera_params, points_2d, camera_indices, point_indices):
 
     return new_cameras, X
 
+
 # https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
-def read_bal_data(file, n_camparams=9):
+def bal_read(file, n_camparams=9):
+    """
+    read BAL data as-is without applying any conversions
+    """
+
     n_cameras, n_points, n_observations = map(
         int, file.readline().split())
 
@@ -59,20 +74,28 @@ def read_bal_data(file, n_camparams=9):
 
     return camera_params, points_3d, camera_indices, point_indices, points_2d
 
-def bal_load_numpy(fp, *, use_initial_pose=True, need_uv_flip=True):
-    # http://grail.cs.washington.edu/projects/bal/
+def bal_flip_uv(points_2d):
+    return - points_2d
 
-    camera_params, points_3d, camera_indices, point_indices, points_2d = read_bal_data(fp)
-
-    # Do we need to flip u,v directions?  (original BAL requires this since its projection model is p = -P / P.z)
-    if need_uv_flip:
-        points_2d = - points_2d
-
-    # Do we guess the initial pose by ourselves?
-    if use_initial_pose is False:
-        camera_params, points_3d = bal_recalib(camera_params, points_2d, camera_indices, point_indices)
-
-    return camera_params, points_3d, camera_indices, point_indices, points_2d
+# def bal_load_numpy(fp, *, use_initial_pose=True, need_uv_flip=True):
+#     """
+#     read BAL data with applying conversions
+#     """
+# 
+#     # http://grail.cs.washington.edu/projects/bal/
+# 
+#     camera_params, points_3d, camera_indices, point_indices, points_2d = read_bal_data(fp)
+# 
+#     # Do we need to flip u,v directions?  (original BAL requires this since its projection model is p = -P / P.z)
+#     if need_uv_flip:
+#         #print('flipping UV', file=sys.stderr)
+#         points_2d = - points_2d
+# 
+#     # Do we guess the initial pose by ourselves?
+#     if use_initial_pose is False:
+#         camera_params, points_3d = bal_recalib(camera_params, camera_indices, point_indices, points_2d)
+# 
+#     return camera_params, points_3d, camera_indices, point_indices, points_2d
 
 def bal_cam9_to_cam17(camera_params):
     """ converts cameras with 9 params (r, t, f, k1, k2) to 17 params (r, t, f, cx, cv, k1, k2, p1, p2, k3, k4, k5, k6) """
@@ -95,23 +118,6 @@ def bal_cam9_to_cam14(camera_params):
     m[7:9] = False # cx, cy
     c[:, 9:11] = camera_params[:, 7:9] # k1, k2
     m[11:14] = False # p1, p2, k3
-
-    return c, m
-
-def bal_cam9_to_cam15(camera_params):
-    """ converts cameras with 9 params (r, t, f, k1, k2) to 15 params (r, t, fx, fy, cx, cv, k1, k2, p1, p2, k3) """
-    n = camera_params.shape[0]
-    assert camera_params.shape[1] == 9
-
-    c = np.zeros((n, 15))
-    m = np.ones(15, dtype=bool)
-
-    c[:, :6] = camera_params[:, :6] # r, t
-    c[:, 6] = camera_params[:, 6] # fx
-    c[:, 7] = camera_params[:, 6] # fy
-    m[8:10] = False # cx, cy
-    c[:, 10:12] = camera_params[:, 7:9] # k1, k2
-    m[12:15] = False # p1, p2, k3
 
     return c, m
 
