@@ -47,6 +47,7 @@ In general, prepare some synthetic dataset, i.e., a toy example, first so that y
 1. **Linear calibration:** Use `numpy`.
 2. **Non-linear (including bundule adjustment):** Try `scipy.optimize.least_squares` first.
    * Implement your objective function as simple as possible. You do not need to consider the computational efficiency at all.
+     * Test with the toy example and make sure that your objective function returns zero at the ground-truth parameter.
    * If it is unacceptably slow, try the followings in this order.
      1. Ask yourself again before trying to make it faster.  Is it really unacceptable?  If your calibration can finish in an hour and you do not do it so often, it might be OK for example. *"Premature optimization is the root of all evil."* (D. Knuth).
      2. Make sure that the optimization runs successfully anyway.  In what follows, double-check that the optimization results do not change.
