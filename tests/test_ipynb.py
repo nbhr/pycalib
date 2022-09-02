@@ -37,8 +37,11 @@ class TestPyCalib(unittest.TestCase):
     def test_excalib_chess(self):
         self.run_ipynb('excalib_chess.ipynb')
 
-    def test_incalib(self):
-        self.run_ipynb('incalib.ipynb')
+    def test_incalib_charuco(self):
+        self.run_ipynb('incalib_charuco.ipynb')
+
+    def test_incalib_chess(self):
+        self.run_ipynb('incalib_chess.ipynb')
 
     def test_ncam_ba(self):
         self.run_ipynb('ncam_ba.ipynb')
