@@ -1,5 +1,8 @@
-matplotlib==3.5.1
-numpy==1.22.0
-opencv_contrib_python==4.5.5.62
-scikit_image==0.19.1
-scipy==1.7.3
+matplotlib==3.5.3
+numpy==1.17.4
+opencv_contrib_python==4.6.0.66
+scikit_image==0.19.3
+scipy==1.9.1
+setuptools==45.2.0
+skimage==0.0
+testbook==0.4.2

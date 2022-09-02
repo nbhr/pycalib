@@ -7,6 +7,8 @@ all:
 	@echo "make check"
 	@echo "make upload-test"
 	@echo "make upload-pypi"
+	@echo
+	@echo "make requirements.txt"
 
 unittest:
 	python3 -m unittest discover tests
@@ -26,4 +28,7 @@ upload-test:
 
 upload-pypi:
 	twine upload --repository pypi dist/*
+
+requirements:
+	pipreqs --use-local --force .
 
