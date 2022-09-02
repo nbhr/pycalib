@@ -1,9 +1,8 @@
-__all__ = ["ba", "bal", "bal3d", "calib", "plot", "util", "sphere"]
-__version__ = '2022.08.31.2'
+__all__ = ["ba", "bal",  "calib", "plot", "util", "sphere"]
+__version__ = '2022.09.2.1'
 
 from .ba import *
 from .bal import *
-from .bal3d import *
 from .calib import *
 from .plot import *
 from .util import *

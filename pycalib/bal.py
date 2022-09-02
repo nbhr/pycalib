@@ -6,10 +6,7 @@ import pycalib
 def bal_recalib(camera_params, camera_indices, point_indices, points_2d):
     num_cameras = len(camera_params)
     assert camera_params.ndim == 2
-    assert len(camera_indices) == len(point_indices)
-    assert len(camera_indices) == len(points_2d)
-    assert points_2d.ndim == 2
-    assert points_2d.shape[1] == 2
+    pycalib.util.check_observations(camera_indices, point_indices, points_2d)
 
 
     if camera_params.shape[1] ==9:
@@ -31,7 +28,7 @@ def bal_recalib(camera_params, camera_indices, point_indices, points_2d):
     D = np.array(D)
 
 
-    R, t, X, _ = pycalib.calib.excalibN(K, D, np.hstack([camera_indices[:,None], point_indices[:,None], points_2d]))
+    R, t, X, _ = pycalib.calib.excalibN(K, D, camera_indices, point_indices, points_2d)
     assert len(R) == num_cameras
     assert len(t) == num_cameras
 
@@ -44,7 +41,7 @@ def bal_recalib(camera_params, camera_indices, point_indices, points_2d):
 
 
 # https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
-def bal_read(file, n_camparams=9):
+def bal_read(file, *, verify_correspondences=True, verify_indices=True, n_camparams=9):
     """
     read BAL data as-is without applying any conversions
     """
@@ -71,6 +68,19 @@ def bal_read(file, n_camparams=9):
     for i in range(n_points * 3):
         points_3d[i] = float(file.readline())
     points_3d = points_3d.reshape((n_points, -1))
+
+    if verify_indices:
+        assert np.all(camera_indices >= 0)
+        assert np.all(camera_indices < n_cameras)
+        assert np.all(point_indices >= 0)
+        assert np.all(point_indices < n_points)
+
+    if verify_correspondences:
+        pid, count = np.unique(point_indices, return_counts=True)
+        assert count.min() >= 2
+
+    camera_indices = camera_indices.astype(np.int32)
+    point_indices = point_indices.astype(np.int32)
 
     return camera_params, points_3d, camera_indices, point_indices, points_2d
 

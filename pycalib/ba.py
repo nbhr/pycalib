@@ -128,20 +128,15 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     n_observations = points_2d.shape[0]
 
     assert camera_params.shape[1] == 17, camera_params.shape[1]
-    assert points_3d.shape[1] == 3
-    assert points_2d.shape[1] == 2
-    assert camera_indices.shape[0] == n_observations
-    assert np.all(camera_indices >= 0)
-    assert np.all(camera_indices < n_cameras)
-    assert point_indices.shape[0] == n_observations
-    assert np.all(point_indices >= 0)
-    assert np.all(point_indices < n_points)
+    pycalib.util.check_observations(camera_indices, point_indices, points_2d)
 
+    """
     print(camera_params.shape)
     print(points_3d.shape)
     print(camera_indices.shape)
     print(point_indices.shape)
     print(points_2d.shape)
+    """
 
     if mask is None:
         mask = np.ones(camera_params.shape[1], dtype=bool)
@@ -168,6 +163,52 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     e = np.sqrt(np.mean(e))
 
     return camera_params, points_3d, e , res
+
+def encode_camera_params(R_Nx3x3, T_Nx3, K_Nx3x3, D_Nx8):
+    N = len(R_Nx3x3)
+    assert R_Nx3x3.shape == (N, 3, 3), R_Nx3x3.shape
+    assert T_Nx3.shape == (N, 3, 1), T_Nx3.shape
+    assert K_Nx3x3.shape == (N, 3, 3), K_Nx3x3.shape
+    assert D_Nx8.shape == (N, 8), D_Nx8.shape
+
+    p = []
+    for r, t, k, d in zip(R_Nx3x3, T_Nx3, K_Nx3x3, D_Nx8):
+        p.append( encode_camera_param(r, t, k, d) )
+    p = np.array(p)
+
+    assert p.shape == (N, 17)
+
+    return p
+
+
+def decode_camera_params(params_Nx17):
+    N = len(params_Nx17)
+    assert params_Nx17.shape == (N, 17)
+
+    R = []
+    T = []
+    K = []
+    D = []
+
+    for p in params_Nx17:
+        r, t, k, d = decode_camera_param(p)
+        R.append(r)
+        T.append(t)
+        K.append(k)
+        D.append(d)
+
+    R = np.array(R)
+    T = np.array(T)
+    K = np.array(K)
+    D = np.array(D)
+
+    assert R.shape == (N, 3, 3), R.shape
+    assert T.shape == (N, 3, 1), T.shape
+    assert K.shape == (N, 3, 3), K.shape
+    assert D.shape == (N, 8), D.shape
+
+    return R, T, K, D
+
 
 def encode_camera_param(rmat, tvec, K, distCoeffs):
     """

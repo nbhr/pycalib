@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
-from pycalib.util import *
+import pycalib
+from pycalib.util import transpose_to_col
 from skimage.transform import SimilarityTransform, EuclideanTransform
 
 def undistort_points(pt2d, cameraMatrix, distCoeffs):
@@ -330,6 +331,61 @@ def triangulate_Npts(pt2d_CxPx2, P_Cx3x4):
     return X
 
 
+def undistortN(A, D, camera_indices, points_2d):
+    Nc = A.shape[0]
+    assert A.ndim == 3
+    assert A.shape == (Nc, 3, 3)
+    assert D.ndim == 2
+    assert D.shape[0] == Nc
+    assert len(camera_indices) == len(points_2d)
+    assert camera_indices.max() == Nc - 1
+
+
+    p_new = points_2d.copy()
+    CIDs = np.unique(camera_indices)
+    for c in CIDs:
+        p2d = points_2d[camera_indices == c]
+        p_new[camera_indices == c] = undistort_points(p2d, A[c], D[c]).reshape((-1, 2))
+
+    return p_new
+
+
+def triangulateN(A, D, P, camera_indices, point_indices, points_2d):
+    Nc = A.shape[0]
+    assert A.ndim == 3
+    assert A.shape == (Nc, 3, 3)
+    assert D.ndim == 2
+    assert D.shape[0] == Nc
+    assert P.ndim == 3
+    assert P.shape == (Nc, 3, 4)
+    pycalib.util.check_observations(camera_indices, point_indices, points_2d)
+
+    points_2d = undistortN(A, D, camera_indices, points_2d)
+
+    PIDs = np.unique(point_indices.astype(np.int32))
+    Y_est = []
+    PIDs_ok = []
+    for pid in sorted(PIDs):
+        c = camera_indices[point_indices == pid]
+        x = points_2d[point_indices == pid].copy()
+
+        if len(c) < 2:
+            continue
+        PIDs_ok.append(pid)
+
+        p = []
+        for i in c:
+            p.append(P[i])
+        p = np.array(p)
+        y = triangulate(x, p)
+        Y_est.append(y)
+
+    Y_est = np.array(Y_est).T
+    Y_est = Y_est[:3,:] / Y_est[3,:]
+
+    return Y_est, PIDs_ok
+
+
 def reprojection_error(pt3d, pt2d, P):
     N = len(pt2d)
     err = []
@@ -342,7 +398,7 @@ def reprojection_error(pt3d, pt2d, P):
     return err
 
 
-def excalibN(A, D, observations):
+def excalibN(A, D, camera_indices, point_indices, points_2d):
     """Calibrate N cameras from 2D correspondences
     Args:
         A: N x 3 x 3 matrix describing the N intrinsic parameters
@@ -354,8 +410,10 @@ def excalibN(A, D, observations):
     assert A.shape == (Nc, 3, 3)
     assert D.ndim == 2
     assert D.shape[0] == Nc
-    assert observations.ndim == 2
-    assert observations.shape[1] == 4
+
+    camera_indices = camera_indices.astype(np.int32)
+    point_indices = point_indices.astype(np.int32)
+    pycalib.util.check_observations(camera_indices, point_indices, points_2d)
 
     def reproj_error(A, R, t, X, x):
         y = R @ X + t
@@ -366,15 +424,17 @@ def excalibN(A, D, observations):
     Rt_pairs = dict()
     for i in range(Nc - 1):
         # pid, u, v
-        oi = observations[observations[:, 0] == i][:,1:]
+        pid_i = point_indices[camera_indices==i]
+        p2d_i = points_2d[camera_indices==i,:]
         for j in range(i + 1, Nc):
             # pid, u, v
-            oj = observations[observations[:, 0] == j][:,1:]
-            _, idx_i, idx_j = np.intersect1d(oi[:, 0], oj[:, 0], assume_unique=True, return_indices=True)
+            pid_j = point_indices[camera_indices==j]
+            p2d_j = points_2d[camera_indices==j,:]
+            _, idx_i, idx_j = np.intersect1d(pid_i, pid_j, assume_unique=True, return_indices=True)
             if len(idx_i) < 8:
                 continue
-            xi = oi[idx_i][:, 1:]
-            xj = oj[idx_j][:, 1:]
+            xi = p2d_i[idx_i,:]
+            xj = p2d_j[idx_j,:]
             R, t, _, _, x3d = excalib2(xi, xj, A[i], D[i], A[j], D[j])
 
             # debug
@@ -409,30 +469,10 @@ def excalibN(A, D, observations):
     P_est = []
     for i in range(Nc):
         P_est.append(A[i] @ np.hstack((R_est[i], t_est[i])))
+    P_est = np.array(P_est)
 
     # Triangulate 3D points
-    PIDs = np.unique(observations[:, 1].astype(np.int32))
-    Y_est = []
-    PIDs_ok = []
-    for pid in sorted(PIDs):
-        o = observations[observations[:, 1] == pid]
-        if len(o) < 2:
-            continue
-        PIDs_ok.append(pid)
-
-        c = o[:, 0].astype(np.int)
-        x = o[:, 2:].copy()
-        for i in range(o.shape[0]):
-            x[i,:] = undistort_points(x[i,:].copy(), A[c[i]], D[c[i]]).reshape((-1, 2))
-        p = []
-        for i in c:
-            p.append(P_est[i])
-        p = np.array(p)
-        y = triangulate(x, p)
-        Y_est.append(y)
-
-    Y_est = np.array(Y_est).T
-    Y_est = Y_est[:3,:] / Y_est[3,:]
+    Y_est, PIDs_ok = triangulateN(A, D, P_est, camera_indices, point_indices, points_2d)
 
     return R_est, t_est, Y_est.T, PIDs_ok
 
