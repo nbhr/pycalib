@@ -44,7 +44,7 @@ def plotCamera(ax, R, t, c, scale):
 
     #axisEqual3D(ax)
 
-def plotCameras(camera_params, points_3d):
+def plotCameras(camera_params, points_3d, scale=-1):
     """Plot cameras and points in 3D
 
     Args:
@@ -56,20 +56,32 @@ def plotCameras(camera_params, points_3d):
 
     R = []
     t = []
+    p = []
     for c in camera_params:
         R.append(cv2.Rodrigues(c[:3])[0])
         t.append(c[3:6])
+        p.append(- R[-1].T @ t[-1][:,None])
+    p = np.array(p)
+
+    if scale <= 0:
+        scale = 0.05
+        if Nc != 1:
+            l = np.linalg.norm(t[0] - t[1])
+            scale *= l
 
     fig = plt.figure()
     ax = Axes3D(fig, auto_add_to_figure=False)
     fig.add_axes(ax)
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-    ax.set_zlim(0, 1)
+    ax.set_xlim(p[:,0].min(), p[:,0].max())
+    ax.set_ylim(p[:,1].min(), p[:,1].max())
+    ax.set_zlim(p[:,2].min(), p[:,2].max())
+    #ax.set_ylim(-lim, lim)
+    #ax.set_zlim(0, lim)
     ax.plot(points_3d[:,0], points_3d[:,1], points_3d[:,2], "o")
     cmap = plt.get_cmap("tab10")
     for i in range(Nc):
-        plotCamera(ax, R[i].T, - R[i].T @ t[i][:,None], cmap(i), 0.05)
+        plotCamera(ax, R[i].T, p[i], cmap(i), scale)
+        #plotCamera(ax, R[i].T, - R[i].T @ t[i][:,None], cmap(i), scale)
     #plt.savefig('a.png')
     fig.show()
     return fig

@@ -4,7 +4,7 @@ import gzip
 import bz2
 import json
 
-def check_observations(camera_indices, point_indices, points_2d):
+def check_observations(camera_indices, point_indices, points_2d, *, allow_unused_camera=False):
     n_observations = points_2d.shape[0]
     n_cameras = camera_indices.max() + 1
     n_points = point_indices.max() + 1
@@ -13,7 +13,9 @@ def check_observations(camera_indices, point_indices, points_2d):
     assert camera_indices.shape[0] == n_observations
     assert np.all(camera_indices >= 0)
     assert np.all(camera_indices < n_cameras)
-    assert len(np.unique(camera_indices)) == n_cameras, "camera_indices must be [0:n_cameras-1]"
+
+    if allow_unused_camera is False:
+        assert len(np.unique(camera_indices)) == n_cameras, "camera_indices must be [0:n_cameras-1]"
 
     assert point_indices.ndim == 1
     assert point_indices.shape[0] == n_observations

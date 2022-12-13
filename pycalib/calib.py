@@ -331,14 +331,16 @@ def triangulate_Npts(pt2d_CxPx2, P_Cx3x4):
     return X
 
 
-def undistortN(A, D, camera_indices, points_2d):
+def undistortN(A, D, camera_indices, points_2d, *, allow_unused_camera=False):
     Nc = A.shape[0]
     assert A.ndim == 3
     assert A.shape == (Nc, 3, 3)
     assert D.ndim == 2
     assert D.shape[0] == Nc
     assert len(camera_indices) == len(points_2d)
-    assert camera_indices.max() == Nc - 1
+
+    if allow_unused_camera is False:
+        assert camera_indices.max() == Nc - 1
 
 
     p_new = points_2d.copy()
@@ -358,9 +360,9 @@ def triangulateN(A, D, P, camera_indices, point_indices, points_2d):
     assert D.shape[0] == Nc
     assert P.ndim == 3
     assert P.shape == (Nc, 3, 4)
-    pycalib.util.check_observations(camera_indices, point_indices, points_2d)
+    pycalib.util.check_observations(camera_indices, point_indices, points_2d, allow_unused_camera=True)
 
-    points_2d = undistortN(A, D, camera_indices, points_2d)
+    points_2d = undistortN(A, D, camera_indices, points_2d, allow_unused_camera=True)
 
     PIDs = np.unique(point_indices.astype(np.int32))
     Y_est = []
