@@ -39,6 +39,39 @@ def bal_recalib(camera_params, camera_indices, point_indices, points_2d):
 
     return new_cameras, X
 
+def bal_write(file, n_cameras, *, camera_params=None, points_3d=None, camera_indices=None, point_indices=None, points_2d=None):
+    assert all( [camera_indices is None, point_indices is None, points_2d is None] ) or all( [camera_indices is not None, point_indices is not None, points_2d is not None] )
+
+    n_observations = 0
+    if camera_indices is not None:
+        n_observations = len(camera_indices)
+        assert n_observations == len(point_indices)
+        assert points_2d.shape == (n_observations, 2)
+    
+    n_points = 0
+    if points_3d is not None:
+        n_points = len(points_3d)
+        assert points_3d.shape == (n_points, 3)
+    elif n_observations > 0:
+        n_points = len(np.unique(point_indices))
+        points_3d = np.zeros((n_points, 3))
+
+    if camera_params is None:
+        camera_params = np.zeros((n_cameras, 9))
+
+    file.write(f'{n_cameras} {n_points} {n_observations}\n'.encode('utf-8'))
+
+    if n_observations > 0:
+        for c, p, uv in zip(camera_indices, point_indices, points_2d):
+            file.write(f'{c} {p} {uv[0]} {uv[1]}\n'.encode('utf-8'))
+
+    for i in camera_params.flatten():
+        file.write(f'{i}\n'.encode('utf-8'))
+
+    if n_points > 0:
+        for i in points_3d.flatten():
+            file.write(f'{i}\n'.encode('utf-8'))
+
 
 # https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 def bal_read(file, *, verify_correspondences=True, verify_indices=True, n_camparams=9):
@@ -77,7 +110,7 @@ def bal_read(file, *, verify_correspondences=True, verify_indices=True, n_campar
 
     if verify_correspondences:
         pid, count = np.unique(point_indices, return_counts=True)
-        assert count.min() >= 2
+        assert count.min() >= 2, 'some points are not observed by 2 cameras'
 
     camera_indices = camera_indices.astype(np.int32)
     point_indices = point_indices.astype(np.int32)

@@ -44,7 +44,7 @@ def plotCamera(ax, R, t, c, scale):
 
     #axisEqual3D(ax)
 
-def plotCameras(camera_params, points_3d, scale=-1):
+def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=False):
     """Plot cameras and points in 3D
 
     Args:
@@ -83,6 +83,18 @@ def plotCameras(camera_params, points_3d, scale=-1):
         plotCamera(ax, R[i].T, p[i], cmap(i), scale)
         #plotCamera(ax, R[i].T, - R[i].T @ t[i][:,None], cmap(i), scale)
     #plt.savefig('a.png')
+
+    if title is not None:
+        ax.text2D(0.05, 0.95, title, transform=ax.transAxes)
+    if draw_zplane:
+        s = np.linalg.norm(t[0] - t[1])
+        ax.plot_surface(*np.meshgrid([-s, s], [-s, s]), np.zeros((2,2)), alpha=0.2)
+        ax.plot([0, s], [0, 0], [0, 0])
+        ax.plot([0, 0], [0, s], [0, 0])
+        ax.text(0, 0, 0, 'O')
+        ax.text(s, 0, 0, 'X')
+        ax.text(0, s, 0, 'Y')
+
     fig.show()
     return fig
 

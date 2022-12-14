@@ -56,6 +56,8 @@ The pip installation, however, does not include examples in `./ipynb`.  To run e
 
 In general, prepare some synthetic dataset, i.e., a toy example, first so that your code can return the exact solution up to the machine epsillon.  Then you can try with real data or synthetic data with noise to mimic it.
 
+Also you may want to read Section A6.3 "A sparse Levenberg-Marquardt algorithm" of the textbook "Multiple View Geometry in Computer Vision" by Hartley and Zisserman.
+
 1. **Linear calibration:** Use `numpy`.
 2. **Non-linear (including bundule adjustment):** Try `scipy.optimize.least_squares` first.
    1. Implement your objective function as simple as possible. You do not need to consider the computational efficiency at all. *"Done is better than perfect."*
@@ -66,5 +68,6 @@ In general, prepare some synthetic dataset, i.e., a toy example, first so that y
       3. Vectorize the computation with `numpy`, i.e., no for-loops in the objective function.
          * or use [`numba`](https://numba.pydata.org/) (e.g. `@numba.jit`)
       4. If the system is sparse, use `jac_sparsity` option. It makes the optimization much faster even without analitical Jacobian.
-      5. Implement the analytical Jacobian. You may want to use [maxima](http://wxmaxima-developers.github.io/wxmaxima/) to automate the calculation, or you may use JAX or other autodiff solutions for this.
-      6. Reimplement in C++ with [ceres-solver](http://ceres-solver.org/) if the computation speed is really important.
+      5. Implement the analytical Jacobian. You may want to use [maxima](http://wxmaxima-developers.github.io/wxmaxima/) to automate the calculation, or you may use [JAX](https://github.com/google/jax) or other autodiff solutions for this.
+      6. Reimplement in C++ with [ceres-solver](http://ceres-solver.org/) or [sba](http://users.ics.forth.gr/~lourakis/sba/) if the computation speed is really important.
+
