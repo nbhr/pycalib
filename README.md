@@ -21,6 +21,10 @@ The pip installation, however, does not include examples in `./ipynb`.  To run e
 
 ## Examples
 
+1. [Extrinsic calibration of 15 GoPro cameras](./ipynb/example_gopro_ba.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/example_gopro_ba.ipynb)
+   * Given 2D-2D correspondences, this example calibrates the extrinsic parameters of 15 GoPro cams.
+
+
 ### Single camera
 
 1. [Intrinsic calibration with charuco images](./ipynb/incalib_charuco.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/incalib_charuco.ipynb)
