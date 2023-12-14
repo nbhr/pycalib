@@ -31,19 +31,19 @@ def check_observations(camera_indices, point_indices, points_2d, *, allow_unused
 
 def check_calib(K, D, R, T):
     if K is not None:
-        assert K.ndim == 3,             f'camera_matrix.shape = {camera_matrix.shape} should be (-1, 3, 3)'
-        assert K.shape[1:] == (3, 3),   f'camera_matrix.shape = {camera_matrix.shape} should be (-1, 3, 3)'
+        assert K.ndim == 3,             f'camera_matrix.shape = {K.shape} should be (-1, 3, 3)'
+        assert K.shape[1:] == (3, 3),   f'camera_matrix.shape = {K.shape} should be (-1, 3, 3)'
     if D is not None:
-        assert D.ndim == 2,             f'dist_coeffs.shape = {dist_coeffs.shape} should be (-1, 8)'
-        assert D.shape[1] == 8,         f'dist_coeffs.shape = {dist_coeffs.shape} should be (-1, 8)'
+        assert D.ndim == 2,             f'dist_coeffs.shape = {D.shape} should be (-1, 8)'
+        assert D.shape[1] == 8,         f'dist_coeffs.shape = {D.shape} should be (-1, 8)'
     if R is not None:
-        assert R.ndim == 3,             f'rmat.shape = {rmat.shape} should be (-1, 3, 3)'
-        assert R.shape[1:] == (3, 3),   f'rmat.shape = {rmat.shape} should be (-1, 3, 3)'
+        assert R.ndim == 3,             f'rmat.shape = {R.shape} should be (-1, 3, 3)'
+        assert R.shape[1:] == (3, 3),   f'rmat.shape = {R.shape} should be (-1, 3, 3)'
     if T is not None:
-        assert T.ndim == 3,             f'tvec.shape = {tvec.shape} should be (-1, 3, 1)'
-        assert T.shape[1:] == (3, 1),   f'tvec.shape = {tvec.shape} should be (-1, 3, 1)'
+        assert T.ndim == 3,             f'tvec.shape = {T.shape} should be (-1, 3, 1)'
+        assert T.shape[1:] == (3, 1),   f'tvec.shape = {T.shape} should be (-1, 3, 1)'
 
-def load_calib(filename):
+def load_calib(filename, *, check=True):
     with open_z(filename, 'r') as fp:
         J = json.load(fp)
 
@@ -53,7 +53,8 @@ def load_calib(filename):
     rmat = np.array(J['R']) if 'R' in J.keys() else None
     tvec = np.array(J['t']) if 't' in J.keys() else None
 
-    check_calib(camera_matrix, dist_coeffs, rmat, tvec)
+    if check:
+        check_calib(camera_matrix, dist_coeffs, rmat, tvec)
 
     return camera_matrix, dist_coeffs, rmat, tvec, reproj
 

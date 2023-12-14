@@ -52,5 +52,11 @@ class TestPyCalib(unittest.TestCase):
     def test_ncam_triangulate(self):
         self.run_ipynb('ncam_triangulate.ipynb')
 
+    def test_example_gopro_ba(self):
+        self.run_ipynb('example_gopro_ba.ipynb')
+
+    def test_excalib_charuco(self):
+        self.run_ipynb('excalib_charuco.ipynb')
+
     def test_sphere(self):
         self.run_ipynb('sphere.ipynb')

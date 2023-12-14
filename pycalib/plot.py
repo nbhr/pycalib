@@ -14,8 +14,9 @@ def axisEqual3D(ax):
     r = maxsize/2
     for ctr, dim in zip(centers, 'xyz'):
         getattr(ax, 'set_{}lim'.format(dim))(ctr - r, ctr + r)
+        getattr(ax, 'set_{}label'.format(dim))(dim)
 
-def plotCamera(ax, R, t, c, scale):
+def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_length=3):
     """Plot a camera in 3D
 
     Args:
@@ -24,25 +25,36 @@ def plotCamera(ax, R, t, c, scale):
         t: 3x1 c2w translation vector
         c: color string
         scale: scaling factor
+        width: horizontal size of the camera screen
+        height: vertical size of the camera screen
+        focal_length: height of the camera cone
     """
-    if t.shape[0] != 1:
-        t = t.T
+    t = t.reshape((3, 1))
 
-    ps_c = np.array(([0,0,0], [1,1,3], [1,-1,3], [-1,-1,3], [-1,1,3]))
-    ps_w = (scale * R @ ps_c.T + t.T).T
+    w = width
+    h = height
+    f = focal_length
+
+    # focus, br, tr, tl, bl, triangle
+    ps_c = np.array(([0,0,0], [w/2,h/2,f], [w/2,-h/2,f], [-w/2,-h/2,f], [-w/2,h/2,f], [0,-h/2-h/4,f]))
+    ps_w = (scale * R @ ps_c.T + t).T
 
     L01 = np.array([ps_w[0], ps_w[1]])
     L02 = np.array([ps_w[0], ps_w[2]])
     L03 = np.array([ps_w[0], ps_w[3]])
     L04 = np.array([ps_w[0], ps_w[4]])
     L1234 = np.array([ps_w[1], ps_w[2], ps_w[3], ps_w[4], ps_w[1]])
-    ax.plot(L01[:,0], L01[:,1], L01[:,2], "-", color=c)
-    ax.plot(L02[:,0], L02[:,1], L02[:,2], "-", color=c)
-    ax.plot(L03[:,0], L03[:,1], L03[:,2], "-", color=c)
-    ax.plot(L04[:,0], L04[:,1], L04[:,2], "-", color=c)
-    ax.plot(L1234[:,0], L1234[:,1], L1234[:,2], "-", color=c)
+    L253 = np.array([ps_w[2], ps_w[5], ps_w[3]])
 
-    #axisEqual3D(ax)
+    p = ax.plot(L01[:,0], L01[:,1], L01[:,2], "-", color=color)
+    if color is None:
+        color = p[-1].get_color()
+    ax.plot(L02[:,0], L02[:,1], L02[:,2], "-", color=color)
+    ax.plot(L03[:,0], L03[:,1], L03[:,2], "-", color=color)
+    ax.plot(L04[:,0], L04[:,1], L04[:,2], "-", color=color)
+    ax.plot(L1234[:,0], L1234[:,1], L1234[:,2], "-", color=color)
+    ax.plot(L253[:,0], L253[:,1], L253[:,2], "-", color=color)
+
 
 def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=False):
     """Plot cameras and points in 3D
@@ -80,7 +92,7 @@ def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=F
     ax.plot(points_3d[:,0], points_3d[:,1], points_3d[:,2], "o")
     cmap = plt.get_cmap("tab10")
     for i in range(Nc):
-        plotCamera(ax, R[i].T, p[i], cmap(i), scale)
+        plotCamera(ax, R[i].T, p[i], color=cmap(i), scale=scale)
         #plotCamera(ax, R[i].T, - R[i].T @ t[i][:,None], cmap(i), scale)
     #plt.savefig('a.png')
 
