@@ -62,7 +62,7 @@ def project(points, camera_params):
 
     return points_proj
 
-def reprojection_error(params, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, cam0):
+def reprojection_error(params, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, cam0):
     """Compute residuals.
 
     `params` contains camera parameters and 3-D coordinates.
@@ -73,7 +73,7 @@ def reprojection_error(params, n_cameras, n_points, camera_indices, point_indice
     # camera_params = params[:n_cameras * 17].reshape((n_cameras, 17))
     points_3d = params[n_cameras * n_params:].reshape((n_points, 3))
     points_proj = project(points_3d[point_indices], camera_params[camera_indices])
-    return (points_proj - points_2d).ravel()
+    return ((points_proj - points_2d) * weights[:,None]).ravel()
 
 
 def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len=17):
@@ -92,7 +92,7 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
 
     return A
 
-def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None):
+def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None, weights=None):
     """
     Optimize camera poses and intrinsics non-linearly
 
@@ -143,6 +143,11 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     assert mask.dtype == bool
     assert len(mask) == camera_params.shape[1]
 
+    if weights is None:
+        weights = np.ones(len(point_indices))
+    assert weights.ndim == 1
+    assert len(weights) == point_indices.shape[0]
+
     camera_params0 = camera_params.copy()
 
     cam_param_len = np.sum(mask)
@@ -150,14 +155,14 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
 
     x0 = np.hstack((camera_params[:, mask].ravel(), points_3d.ravel()))
 
-    res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, camera_params0))
+    res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, camera_params0))
 
     n = camera_params[:, mask].size
     x = res.x[:n]
     camera_params[:, mask] = x.reshape((n_cameras, -1))
     points_3d = res.x[n:].reshape((-1, 3))
 
-    e = reprojection_error(res.x, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, camera_params0).reshape((-1, 2))
+    e = reprojection_error(res.x, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, camera_params0).reshape((-1, 2))
     e = np.linalg.norm(e, axis=1)
     assert( len(e) == n_observations )
     e = np.sqrt(np.mean(e))
