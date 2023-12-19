@@ -75,7 +75,6 @@ def reprojection_error(params, n_cameras, n_points, camera_indices, point_indice
     points_proj = project(points_3d[point_indices], camera_params[camera_indices])
     return ((points_proj - points_2d) * weights[:,None]).ravel()
 
-
 def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len=17):
     m = camera_indices.size * 2
     n = n_cameras * cam_param_len + n_points * 3
@@ -92,7 +91,7 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
 
     return A
 
-def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None, weights=None):
+def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None, weights=None, loss='linear'):
     """
     Optimize camera poses and intrinsics non-linearly
 
@@ -108,6 +107,14 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
         N array of point indices. points_3d[point_indices[i]] is observed by camera_indices[i] at points_2d[i]
     points_2d: ndarray
         N x 2 array of 2D points.  points_3d[point_indices[i]] is observed by camera_indices[i] at points_2d[i]
+    mask: ndarray
+        A bool array of length 17 to specify the camera parameters to optimize.
+    weights:
+        N array of weights to scale the error at each point.  Set 0 to ignore the point.
+    verbose: int
+        {0, 1, 2}.  See `verbose` arg of `scipy.optimize.least_squares()`.
+    loss: str or callable
+        `linear`, `soft_l1`, `huber`, `cauchy`, or `arctan`.  See `loss` arg of `scipy.optimize.least_squares()`.
 
 
     Returns
@@ -120,6 +127,12 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
         reprojection error (RMSE)
     res : OptimizeResult
         output of `scipy.optimize.least_squares()`
+
+
+    ToDo
+    ----
+    * add bounds support
+    * add camera-wise mask
 
     """
 
@@ -155,7 +168,7 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
 
     x0 = np.hstack((camera_params[:, mask].ravel(), points_3d.ravel()))
 
-    res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, camera_params0))
+    res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', loss=loss, args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, camera_params0))
 
     n = camera_params[:, mask].size
     x = res.x[:n]

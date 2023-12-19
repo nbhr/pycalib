@@ -66,9 +66,9 @@ Also you may want to read Section A6.3 "A sparse Levenberg-Marquardt algorithm" 
 2. **Non-linear (including bundule adjustment):** Try `scipy.optimize.least_squares` first.
    1. Implement your objective function as simple as possible. You do not need to consider the computational efficiency at all. *"Done is better than perfect."*
       * Test with the toy example and make sure that your objective function returns zero for the ground-truth parameter.
-   2. If the above is unacceptably slow, try the followings in this order.
+   2. If your simple objective function above is unacceptably slow, try the followings in this order.
       1. Ask yourself again before trying to make it faster.  Is it really unacceptable?  If your calibration can finish in an hour and you do not do it so often, it might be OK for example. *"Premature optimization is the root of all evil."* (D. Knuth).
-      2. Make sure that the optimization runs successfully anyway.  In what follows, double-check that the optimization results do not change.
+      2. Make sure that the optimization runs successfully anyway.  In what follows, double-check that the optimization results do not change before and after the optimization.
       3. Vectorize the computation with `numpy`, i.e., no for-loops in the objective function.
          * or use [`numba`](https://numba.pydata.org/) (e.g. `@numba.jit`)
       4. If the system is sparse, use `jac_sparsity` option. It makes the optimization much faster even without analitical Jacobian.

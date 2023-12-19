@@ -7,4 +7,5 @@ from .calib import *
 from .plot import *
 from .util import *
 from .sphere import *
+from .diamond import *
 
