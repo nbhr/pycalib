@@ -1,6 +1,6 @@
 # Simple Camera Calibration in Python for Beginners
 
-This is a collection of algorithms related to multiple-view camera calibration in computer vision.  Please note that the goal of this package is to provide *minimal* examples to demostrate the concept for beginners (i.e., students).  For large-scale, realtime, accurate, robust, production-quality implementations, or for implementations for your specific situation, please consult your advisor.
+This is a collection of algorithms related to multiple view camera calibration in computer vision.  Please note that the goal of this package is to provide *minimal* examples to demostrate the concept for beginners (i.e., students).  For large-scale, realtime, accurate, robust, production-quality implementations, or for implementations for your specific situation, please consult your advisor.
 
 
 ## Disclaimer
@@ -42,14 +42,19 @@ The pip installation, however, does not include examples in `./ipynb`.  To run e
 
 1. [Multi-view triangulation](./ipynb/ncam_triangulate.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_triangulate.ipynb)
    * N-view DLT
-2. [Sphere center detection for 2D-2D correspondences](./ipynb/sphere.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/sphere.ipynb)
+2. [ChAruco diamond marker detection for 2D-2D correspondences](./ipynb/charuco_diamond.ipyn) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/charuco_diamond.ipynb)
+   * for extrinsic calibration using a ChAruco diamond marker
+   * also can be used for PnP, i.e., extrinsic calibration w.r.t. the diamond marker
+3. [Sphere center detection for 2D-2D correspondences](./ipynb/sphere.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/sphere.ipynb)
    * for extrinsic calibration using a ball
-3. [2-view extrinsic calibration from 2D-2D correspondences](./ipynb/excalib_2d.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_2d.ipynb)
+4. [2-view extrinsic calibration from 2D-2D correspondences](./ipynb/excalib_2d.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_2d.ipynb)
    * decomposes the essential matrix to R and t
-4. [N-view registration](./ipynb/ncam_registration.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_registration.ipynb)
+5. [N-view registration](./ipynb/ncam_registration.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_registration.ipynb)
    * A linear registration of pairwise poses into a single coordinate system
-5. [N-view bundle adjustment](./ipynb/ncam_ba.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_ba.ipynb)
+6. [N-view bundle adjustment](./ipynb/ncam_ba.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_ba.ipynb)
    * A non-linear minization of reprojection errros
+7. [N-view time sync](./ipynb/aruco_movie.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/aruco_movie.ipynb)
+   * Aruco / Aruco diamond video maker for multi-view time sync
 
 ### 3D-3D
 
