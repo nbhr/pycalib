@@ -13,6 +13,7 @@ all:
 unittest:
 	python3 -m unittest discover tests
 	for i in ipynb/*.ipynb; do j=`basename $$i .ipynb`; grep -q test_$${j} tests/test_ipynb.py || echo "$$i is not tested"; done
+	for i in ipynb/*.ipynb; do j=`basename $$i`; grep -q $${j} README.md || echo "$$i is not mentioned in README"; done
 
 clean:
 	rm -rf dist build pycalib.egg-info

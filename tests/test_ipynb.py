@@ -36,6 +36,9 @@ class TestPyCalib(unittest.TestCase):
     def test_absolute_orientation(self):
         self.run_ipynb('absolute_orientation.ipynb')
 
+    def test_absolute_orientation(self):
+        self.run_ipynb('aruco_movie.ipynb')
+
     def test_calib2d3d(self):
         self.run_ipynb('calib2d3d.ipynb')
 
