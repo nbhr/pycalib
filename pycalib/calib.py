@@ -28,8 +28,8 @@ def excalib(p1, p2, A, d):
     """
     Returns R, t satisfying x2 = R * x1 + t (= p1 will be the world camera)
     """
-    p1 = transpose_to_col(p1, 2).reshape((-1,1,2)).astype(np.float)
-    p2 = transpose_to_col(p2, 2).reshape((-1,1,2)).astype(np.float)
+    p1 = transpose_to_col(p1, 2).reshape((-1,1,2)).astype(float)
+    p2 = transpose_to_col(p2, 2).reshape((-1,1,2)).astype(float)
 
     # Undistort
     n1 = undistort_points(p1, A, d)
@@ -74,8 +74,8 @@ def excalib2(p1, p2, A1, d1, A2, d2):
     """
     Returns R, t satisfying x2 = R * x1 + t (= p1 will be the world camera)
     """
-    p1 = transpose_to_col(p1, 2).reshape((-1,1,2)).astype(np.float)
-    p2 = transpose_to_col(p2, 2).reshape((-1,1,2)).astype(np.float)
+    p1 = transpose_to_col(p1, 2).reshape((-1,1,2)).astype(float)
+    p2 = transpose_to_col(p2, 2).reshape((-1,1,2)).astype(float)
 
     # Undistort
     n1 = undistort_points(p1, A1, d1)

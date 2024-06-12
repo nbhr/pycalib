@@ -324,8 +324,8 @@ def excalib2_ba(p1, p2, A1, d1, A2, d2, *, verbose=0):
     X_est = X.T
 
     ## 2D est (Nc, Np, 2)
-    p1 = pycalib.calib.transpose_to_col(p1, 2).astype(np.float)
-    p2 = pycalib.calib.transpose_to_col(p2, 2).astype(np.float)
+    p1 = pycalib.calib.transpose_to_col(p1, 2).astype(float)
+    p2 = pycalib.calib.transpose_to_col(p2, 2).astype(float)
     x_est = np.array( [ p1, p2 ] )
 
     ## optim
