@@ -42,7 +42,7 @@ The pip installation, however, does not include examples in `./ipynb`.  To run e
 
 1. [Multi-view triangulation](./ipynb/ncam_triangulate.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_triangulate.ipynb)
    * N-view DLT
-2. [ChAruco diamond marker detection for 2D-2D correspondences](./ipynb/charuco_diamond.ipyn) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/charuco_diamond.ipynb)
+2. [ChAruco diamond marker detection for 2D-2D correspondences](./ipynb/charuco_diamond.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/charuco_diamond.ipynb)
    * for extrinsic calibration using a ChAruco diamond marker
    * also can be used for PnP, i.e., extrinsic calibration w.r.t. the diamond marker
 3. [Sphere center detection for 2D-2D correspondences](./ipynb/sphere.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/sphere.ipynb)
