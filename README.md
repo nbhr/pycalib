@@ -31,9 +31,9 @@ The pip installation, however, does not include examples in `./ipynb`.  To run e
    * GoPro fisheye lens distortion is handled by the rational model in OpenCV
 2. [Intrinsic calibration with chessboard images](./ipynb/incalib_chess.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/incalib_chess.ipynb)
    * Zhang's method
-3. [Extrinsic calibration w.r.t. a charuco board](./ipynb/excalib_charuco.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_chess.ipynb)
+3. [Extrinsic calibration w.r.t. a charuco board](./ipynb/excalib_charuco.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_charuco.ipynb)
    * PnP with ChAruco
-4. [Extrinsic calibration w.r.t. a chassboard](./ipynb/excalib_charuco.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_chess.ipynb)
+4. [Extrinsic calibration w.r.t. a chessboard](./ipynb/excalib_chess.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_chess.ipynb)
    * PnP with chessboard
 5. [Intrinsic / Extrinsic calibration with 2D-3D correspondences](./ipynb/calib2d3d.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/calib2d3d.ipynb)
    * for non-planar reference objects
