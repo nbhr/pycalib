@@ -9,4 +9,4 @@ scipy==1.8.0
 setuptools==59.6.0
 skimage==0.0
 testbook==0.4.2
-tqdm==4.65.0
+tqdm==4.66.5
