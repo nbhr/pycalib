@@ -4,6 +4,23 @@ import cv2
 
 # memo: cv2.fitEllipse returns ( (cx, cy), (2*a, 2*b), (theta_in_deg) )
 
+def fit_ellipse(gray, *, min_sz=0, max_sz=-1, force_convex_hull=True):
+    contours, _ = cv2.findContours(gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    if max_sz < 0:
+        max_sz = gray.shape[0]*gray.shape[1]
+
+    for cnt in contours:
+        if len(cnt) < 5:
+            continue
+        M = cv2.moments(cnt)
+        if M['m00'] < min_sz or M['m00'] > max_sz:
+            continue
+        if force_convex_hull:
+            cnt = cv2.convexHull(cnt, returnPoints=True)
+        ellipse = cv2.fitEllipse(cnt)
+        yield ellipse, cnt
+
 def resample_ellipse(ellipse, N):
     t = np.linspace(0, 2*np.pi, N)
     p = np.array([ellipse[1][0] * np.cos(t), ellipse[1][1] * np.sin(t)]) / 2
@@ -28,7 +45,7 @@ def render_sphere(center_3d, radius, K, img_w, img_h):
     t = t / np.einsum('ijx,ijx->ij', nxyz, nxyz)
     p = nxyz * t[:,:,None]
 
-    # distances from the sphere center to each viewing ray 
+    # distances from the sphere center to each viewing ray
     d = np.linalg.norm(center_3d - p, axis=2)
     #print(np.max(d), np.min(d))
 
@@ -38,9 +55,9 @@ def render_sphere(center_3d, radius, K, img_w, img_h):
     return img
 
 
-def calc_sphere_center_from_ellipse(cnt, K, r=None):
+def calc_sphere_center_from_ellipse(ellipse, K, r=None):
     # Maalek and Lichti, "Correcting the Eccentricity Error of Projected Spherical Objectsin Perspective Cameras," 2021
-    ellipse = cv2.fitEllipse(cnt)
+    #ellipse = cv2.fitEllipse(cnt)
     cx, cy = ellipse[0]
     a, b = np.array(ellipse[1]) / 2
     theta = ellipse[2] / 180 * np.pi

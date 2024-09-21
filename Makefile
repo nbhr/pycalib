@@ -18,6 +18,7 @@ unittest:
 clean:
 	rm -rf dist build pycalib.egg-info
 	find -name '*~' -exec rm -vf {} +
+	rm -vf ipynb/output*
 
 build:
 	python3 setup.py sdist
