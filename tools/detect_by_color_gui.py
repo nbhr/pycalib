@@ -65,6 +65,32 @@ if __name__ == '__main__':
     fg_tree = None
     bg_tree = None
 
+    def show_help():
+        print(f'\n\n\n')
+        print(f'\t,\tprev frame')
+        print(f'\t.\tnext frame')
+        print(f'\tf\tforeground sampling mode (by mouse)')
+        print(f'\tb\tbackground sampling mode (by mouse)')
+        print(f'\ts\tsegmentation mode')
+        print(f'\tt\toverlay the segmentation result over the video frame')
+        print(f'\tw\tsave to {args.output}')
+        print(f'\n\n\n')
+        print(f'1. Sample foreground colors by mouse')
+        print(f'   1. Press `f` to switch to FG mode')
+        print(f'   2. Select FG area by the left mouse button')
+        print(f'      - Shift + L-mouse de-selects the pixel colors')
+        print(f'2. Sample background colors by mouse')
+        print(f'   1. Press `b` to switch to BG mode')
+        print(f'3. Check segmentation result')
+        print(f'   1. Press `s` to switch to SEG mode')
+        print(f'   2. Add FG / BG colors by `f` and `b` modes as needed.')
+        print(f'4. Check other frames')
+        print(f'   1. Press `,` and `.` to go back and forth')
+        print(f'5. Save the sampled FG/BG colors')
+        print(f'   1. Press `w` to save as `{args.output}`')
+        print(f'6. Use `detect_by_color.py` and `{args.output}` to save results.')
+        print(f'\n\n\n')
+
     def on_change_frame(val):
         global main_buf
         global redraw
@@ -95,12 +121,26 @@ if __name__ == '__main__':
             return to_uint8x3(a)
             return np.unique(np.concatenate((curr_pix, add_pix)), axis=0)
 
+    def add_pix_tree(msg, pix, tree, new_pix):
+        print(f'add {msg} {len(pix)} -> ', end='')
+        pix = add_pix(pix, new_pix)
+        tree = sp.spatial.KDTree(pix)
+        print(f'{len(pix)}')
+        return pix, tree
+
     def del_pix(curr_pix, new_pix):
         if len(curr_pix) == 0:
             return
         else:
             a = np.setdiff1d(to_uint32(curr_pix), to_uint32(new_pix), assume_unique=True)
             return to_uint8x3(a)
+
+    def del_pix_tree(msg, pix, tree, new_pix):
+        print(f'del {msg} {len(pix)} -> ', end='')
+        pix = del_pix(pix, new_pix)
+        tree = sp.spatial.KDTree(pix)
+        print(f'{len(pix)}')
+        return pix, tree
 
     def on_mouse(event, x, y, flags, params):
         global main_buf
@@ -129,26 +169,15 @@ if __name__ == '__main__':
 
                 if flags & cv2.EVENT_FLAG_SHIFTKEY:
                     if mode == Mode.FG:
-                        print(f'del fg {len(fg_pix)} -> ', end='')
-                        fg_pix = del_pix(fg_pix, roi)
-                        fg_tree = sp.spatial.KDTree(fg_pix)
-                        print(f'{len(fg_pix)}')
+                        fg_pix, fg_tree = del_pix_tree('fg', fg_pix, fg_tree, roi)
                     elif mode == Mode.BG:
-                        print(f'del bg {len(bg_pix)} -> ', end='')
-                        bg_pix = del_pix(bg_pix, roi)
-                        bg_tree = sp.spatial.KDTree(bg_pix)
-                        print(f'{len(bg_pix)}')
+                        bg_pix, bg_tree = del_pix_tree('bg', bg_pix, bg_tree, roi)
                 else:
                     if mode == Mode.FG:
-                        print(f'add fg {len(fg_pix)} -> ', end='')
-                        fg_pix = add_pix(fg_pix, roi)
-                        fg_tree = sp.spatial.KDTree(fg_pix)
-                        print(f'{len(fg_pix)}')
+                        fg_pix, fg_tree = add_pix_tree('fg', fg_pix, fg_tree, roi)
                     elif mode == Mode.BG:
-                        print(f'add bg {len(fg_pix)} -> ', end='')
-                        bg_pix = add_pix(bg_pix, roi)
-                        bg_tree = sp.spatial.KDTree(bg_pix)
-                        print(f'{len(bg_pix)}')
+                        bg_pix, bg_tree = add_pix_tree('bg', bg_pix, bg_tree, roi)
+
                 cv2.imshow("main", main_buf)
                 redraw = True
             case cv2.EVENT_MOUSEMOVE:
@@ -169,6 +198,7 @@ if __name__ == '__main__':
     cv2.createTrackbar("smoothness", "main", args.smoothness, 256, on_change_trackbar)
     cv2.setMouseCallback('main', on_mouse, mouse_state)
     on_change_frame(0)
+    show_help()
 
     while True:
         if redraw:
@@ -177,9 +207,9 @@ if __name__ == '__main__':
                 bg_scale = cv2.getTrackbarPos("bg_scale", "main")
                 smoothness = cv2.getTrackbarPos("smoothness", "main")
                 print('segmentation ... ', end='', flush=True)
-                sil = get_silhouette(main_buf, fg_tree, bg_tree, fg_scale, bg_scale, smoothness)
+                main_seg = get_silhouette(main_buf, fg_tree, bg_tree, fg_scale, bg_scale, smoothness)
                 print('done', flush=True)
-                cv2.imshow("main", sil)
+                cv2.imshow("main", main_seg)
             redraw = False
 
         key = cv2.waitKey(10)
@@ -203,6 +233,11 @@ if __name__ == '__main__':
                 mode = Mode.SEG
                 print('segmentation mode')
                 redraw = True
+        elif key == ord('t'):
+            if main_buf is not None and main_seg is not None:
+                buf = main_buf.copy()
+                buf[main_seg == 0] = buf[main_seg == 0] // 16
+                cv2.imshow("main", buf)
         elif key == 83 or key == ord('.'): # right
             curr = cv2.getTrackbarPos("frame", "main")
             if curr < count-1:
@@ -214,6 +249,8 @@ if __name__ == '__main__':
         elif key == ord('w'):
             print(f'saving to {args.output}')
             save_state(args.output)
+        elif key == ord('h') or key == ord('?'):
+            show_help()
         elif key>0:
             pass
             #print(f'unknown key {key}')

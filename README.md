@@ -47,6 +47,7 @@ The pip installation, however, does not include examples in `./ipynb`.  To run e
    * also can be used for PnP, i.e., extrinsic calibration w.r.t. the diamond marker
 3. [Sphere center detection for 2D-2D correspondences](./ipynb/sphere.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/sphere.ipynb)
    * for extrinsic calibration using a ball
+   * A color-based ball detection is provided as `tools/detect_by_color_gui.py` and `tools/detect_by_color.py`.  The former GUI version can be used to sample foreground and background pixel colors, and the latter can be used to process each frame.
 4. [2-view extrinsic calibration from 2D-2D correspondences](./ipynb/excalib_2d.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_2d.ipynb)
    * decomposes the essential matrix to R and t
 5. [N-view registration](./ipynb/ncam_registration.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_registration.ipynb)
