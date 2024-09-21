@@ -3,6 +3,37 @@ import cv2
 import numpy as np
 import pycalib
 
+def bal_triangulate(camera_params, camera_indices, point_indices, points_2d):
+    num_cameras = len(camera_params)
+    assert camera_params.ndim == 2
+    pycalib.util.check_observations(camera_indices, point_indices, points_2d)
+
+
+    if camera_params.shape[1] ==9:
+        # BAL -> full camera parameters
+        c = []
+        for i in camera_params:
+            c.append( bal_cam9_to_cam17(i) )
+        camera_params = np.array(c)
+    assert camera_params.shape[1] == 17
+
+
+    K = []
+    D = []
+    P = []
+    for c in camera_params:
+        r, t, k, d= pycalib.ba.decode_camera_param(c)
+        K.append(k)
+        D.append(d)
+        P.append(k @ np.hstack((r, t)))
+    K = np.array(K)
+    D = np.array(D)
+    P = np.array(P)
+
+    Y_est, PIDs_ok = pycalib.calib.triangulateN(K, D, P, camera_indices, point_indices, points_2d)
+
+    return Y_est.T
+
 def bal_recalib(camera_params, camera_indices, point_indices, points_2d):
     num_cameras = len(camera_params)
     assert camera_params.ndim == 2

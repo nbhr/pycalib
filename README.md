@@ -1,6 +1,6 @@
 # Simple Camera Calibration in Python for Beginners
 
-This is a collection of algorithms related to multiple-view camera calibration in computer vision.  Please note that the goal of this package is to provide *minimal* examples to demostrate the concept for beginners (i.e., students).  For large-scale, realtime, accurate, robust, production-quality implementations, or for implementations for your specific situation, please consult your advisor.
+This is a collection of algorithms related to multiple view camera calibration in computer vision.  Please note that the goal of this package is to provide *minimal* examples to demostrate the concept for beginners (i.e., students).  For large-scale, realtime, accurate, robust, production-quality implementations, or for implementations for your specific situation, please consult your advisor.
 
 
 ## Disclaimer
@@ -31,9 +31,9 @@ The pip installation, however, does not include examples in `./ipynb`.  To run e
    * GoPro fisheye lens distortion is handled by the rational model in OpenCV
 2. [Intrinsic calibration with chessboard images](./ipynb/incalib_chess.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/incalib_chess.ipynb)
    * Zhang's method
-3. [Extrinsic calibration w.r.t. a charuco board](./ipynb/excalib_charuco.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_chess.ipynb)
+3. [Extrinsic calibration w.r.t. a charuco board](./ipynb/excalib_charuco.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_charuco.ipynb)
    * PnP with ChAruco
-4. [Extrinsic calibration w.r.t. a chassboard](./ipynb/excalib_charuco.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_chess.ipynb)
+4. [Extrinsic calibration w.r.t. a chessboard](./ipynb/excalib_chess.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_chess.ipynb)
    * PnP with chessboard
 5. [Intrinsic / Extrinsic calibration with 2D-3D correspondences](./ipynb/calib2d3d.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/calib2d3d.ipynb)
    * for non-planar reference objects
@@ -42,14 +42,20 @@ The pip installation, however, does not include examples in `./ipynb`.  To run e
 
 1. [Multi-view triangulation](./ipynb/ncam_triangulate.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_triangulate.ipynb)
    * N-view DLT
-2. [Sphere center detection for 2D-2D correspondences](./ipynb/sphere.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/sphere.ipynb)
+2. [ChAruco diamond marker detection for 2D-2D correspondences](./ipynb/charuco_diamond.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/charuco_diamond.ipynb)
+   * for extrinsic calibration using a ChAruco diamond marker
+   * also can be used for PnP, i.e., extrinsic calibration w.r.t. the diamond marker
+3. [Sphere center detection for 2D-2D correspondences](./ipynb/sphere.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/sphere.ipynb)
    * for extrinsic calibration using a ball
-3. [2-view extrinsic calibration from 2D-2D correspondences](./ipynb/excalib_2d.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_2d.ipynb)
+   * A color-based ball detection is provided as `tools/detect_by_color_gui.py` and `tools/detect_by_color.py`.  The former GUI version can be used to sample foreground and background pixel colors, and the latter can be used to process each frame.
+4. [2-view extrinsic calibration from 2D-2D correspondences](./ipynb/excalib_2d.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_2d.ipynb)
    * decomposes the essential matrix to R and t
-4. [N-view registration](./ipynb/ncam_registration.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_registration.ipynb)
+5. [N-view registration](./ipynb/ncam_registration.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_registration.ipynb)
    * A linear registration of pairwise poses into a single coordinate system
-5. [N-view bundle adjustment](./ipynb/ncam_ba.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_ba.ipynb)
+6. [N-view bundle adjustment](./ipynb/ncam_ba.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_ba.ipynb)
    * A non-linear minization of reprojection errros
+7. [N-view time sync](./ipynb/aruco_movie.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/aruco_movie.ipynb)
+   * Aruco / Aruco diamond video maker for multi-view time sync
 
 ### 3D-3D
 
@@ -66,12 +72,12 @@ Also you may want to read Section A6.3 "A sparse Levenberg-Marquardt algorithm" 
 2. **Non-linear (including bundule adjustment):** Try `scipy.optimize.least_squares` first.
    1. Implement your objective function as simple as possible. You do not need to consider the computational efficiency at all. *"Done is better than perfect."*
       * Test with the toy example and make sure that your objective function returns zero for the ground-truth parameter.
-   2. If the above is unacceptably slow, try the followings in this order.
+   2. If your simple objective function above is unacceptably slow, try the followings in this order.
       1. Ask yourself again before trying to make it faster.  Is it really unacceptable?  If your calibration can finish in an hour and you do not do it so often, it might be OK for example. *"Premature optimization is the root of all evil."* (D. Knuth).
-      2. Make sure that the optimization runs successfully anyway.  In what follows, double-check that the optimization results do not change.
+      2. Make sure that the calibration runs successfully anyway.  In what follows, double-check that the calibration results do not change before and after the code optimization.
       3. Vectorize the computation with `numpy`, i.e., no for-loops in the objective function.
          * or use [`numba`](https://numba.pydata.org/) (e.g. `@numba.jit`)
-      4. If the system is sparse, use `jac_sparsity` option. It makes the optimization much faster even without analitical Jacobian.
+      4. If the system is sparse, use `jac_sparsity` option. It makes `scipy.optimize.least_squares` much faster even without analitical Jacobian.
       5. Implement the analytical Jacobian. You may want to use [maxima](http://wxmaxima-developers.github.io/wxmaxima/) to automate the calculation, or you may use [JAX](https://github.com/google/jax) or other autodiff solutions for this.
-      6. Reimplement in C++ with [ceres-solver](http://ceres-solver.org/) or [sba](http://users.ics.forth.gr/~lourakis/sba/) if the computation speed is really important.
+      6. Reimplement in C++ with [ceres-solver](http://ceres-solver.org/), [g2o](https://github.com/RainerKuemmerle/g2o), or [sba](http://users.ics.forth.gr/~lourakis/sba/) if the computation speed is really important.
 
