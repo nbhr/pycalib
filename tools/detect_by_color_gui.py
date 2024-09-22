@@ -8,8 +8,10 @@ from detect_by_color import get_silhouette, fit_ellipse
 def save_state(filename):
     fg_scale = cv2.getTrackbarPos("fg_scale", "main")
     bg_scale = cv2.getTrackbarPos("bg_scale", "main")
+    min_blob = cv2.getTrackbarPos("min_blob", "main")
+    max_blob = cv2.getTrackbarPos("max_blob", "main")
     smoothness = cv2.getTrackbarPos("smoothness", "main")
-    np.savez_compressed(filename, fg_pix=fg_pix, bg_pix=bg_pix, fg_scale=fg_scale, bg_scale=bg_scale, smoothness=smoothness)
+    np.savez_compressed(filename, fg_pix=fg_pix, bg_pix=bg_pix, fg_scale=fg_scale, bg_scale=bg_scale, min_blob=min_blob, max_blob=max_blob, smoothness=smoothness)
 
 class MouseState:
     bx: int = -1
@@ -30,7 +32,7 @@ parser.add_argument('-f', '--fg_scale', type=int, choices=range(1, 256), metavar
 parser.add_argument('-b', '--bg_scale', type=int, choices=range(1, 256), metavar="[1-255]", default=1, help='Scaling factor')
 parser.add_argument('-m', '--min_blob', type=int, choices=range(1, 1024), metavar="[1-1023]", default=1, help='Minimum blob size (px)')
 parser.add_argument('-M', '--max_blob', type=int, choices=range(1, 1024), metavar="[1-1023]", default=256, help='Maxmum blob size (px)')
-parser.add_argument('-s', '--smoothness', type=int, choices=range(0, 256), metavar="[0-255]", default=16, help='Smoothness factor')
+parser.add_argument('-s', '--smoothness', type=int, choices=range(0, 1001), metavar="[0-1000]", default=10, help='Smoothness factor (%)')
 args = parser.parse_args()
 
 cap = cv2.VideoCapture(args.input)
@@ -141,6 +143,10 @@ def on_mouse(event, x, y, flags, params):
             mouse_state.ex = x
             mouse_state.ey = y
             mouse_state.is_dragging = False
+            if mouse_state.bx > mouse_state.ex:
+                mouse_state.bx, mouse_state.ex = mouse_state.ex, mouse_state.bx
+            if mouse_state.by > mouse_state.ey:
+                mouse_state.by, mouse_state.ey = mouse_state.ey, mouse_state.by
 
             # unique pixel colors
             roi = main_buf[mouse_state.by:mouse_state.ey+1,mouse_state.bx:mouse_state.ex+1,:]
@@ -177,7 +183,7 @@ cv2.createTrackbar("fg_scale", "main", args.fg_scale, 256, on_change_trackbar)
 cv2.createTrackbar("bg_scale", "main", args.bg_scale, 256, on_change_trackbar)
 cv2.createTrackbar("min_blob", "main", args.min_blob, 1024, on_change_trackbar)
 cv2.createTrackbar("max_blob", "main", args.max_blob, 1024, on_change_trackbar)
-cv2.createTrackbar("smoothness", "main", args.smoothness, 256, on_change_trackbar)
+cv2.createTrackbar("smoothness", "main", args.smoothness, 1000, on_change_trackbar)
 cv2.setMouseCallback('main', on_mouse, mouse_state)
 on_change_frame(0)
 show_help()
@@ -189,7 +195,7 @@ while True:
             bg_scale = cv2.getTrackbarPos("bg_scale", "main")
             min_sz = cv2.getTrackbarPos("min_blob", "main")**2
             max_sz = cv2.getTrackbarPos("max_blob", "main")**2
-            smoothness = cv2.getTrackbarPos("smoothness", "main")
+            smoothness = cv2.getTrackbarPos("smoothness", "main") / 100.0
             print('segmentation ... ', end='', flush=True)
             main_seg = get_silhouette(main_buf, fg_tree, bg_tree, fg_scale, bg_scale, smoothness)
             buf = fit_ellipse(main_seg, min_sz=min_sz, max_sz=max_sz, force_convex_hull=True, verbose=True)

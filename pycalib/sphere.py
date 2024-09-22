@@ -11,13 +11,13 @@ def fit_ellipse(gray, *, min_sz=0, max_sz=-1, force_convex_hull=True):
         max_sz = gray.shape[0]*gray.shape[1]
 
     for cnt in contours:
-        if len(cnt) < 5:
-            continue
         M = cv2.moments(cnt)
         if M['m00'] < min_sz or M['m00'] > max_sz:
             continue
         if force_convex_hull:
             cnt = cv2.convexHull(cnt, returnPoints=True)
+        if len(cnt) < 5:
+            continue
         ellipse = cv2.fitEllipse(cnt)
         yield ellipse, cnt
 
