@@ -58,8 +58,8 @@ Notice that the scripts in `./tools/` are not supposed to run in Colab/Jupyter.
    * A linear registration of pairwise poses into a single coordinate system
 6. [N-view bundle adjustment](./ipynb/ncam_ba.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_ba.ipynb)
    * A non-linear minization of reprojection errors
-7. [N-view time sync](./ipynb/aruco_movie.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/aruco_movie.ipynb)
-   * Aruco / Aruco diamond video maker for multi-view time sync
+7. [N-view time sync](./ipynb/qrtimecode.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/qrtimecode.ipynb)
+   * GoPro compatible QR time sync pattern generator, detector, and offset estimator
 
 ### 3D-3D
 

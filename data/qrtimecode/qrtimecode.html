@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+
+<!-- 
+
+based on https://github.com/gopro/labs/tree/master/docs/qr
+
+run build.py to generate gopro+js.html
+
+-->
+
+<script src="./qrcodeborder.js"></script>
+<style>
+        #qrcode{
+            width: 100%;
+        }
+        div{
+            width: 100%;
+            display: inline-block;
+        }
+</style>
+
+<script>
+var delay = 1000/100;
+var gopro_mode = true;
+
+var qrcode;
+var cmd = "";
+var lasttimecmd = ""; 
+
+const tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds
+const tzoffset_str = (new Date()).toString();
+const tzoffset_str_gmt = tzoffset_str.indexOf("GMT");
+const tz = tzoffset_str.slice(tzoffset_str_gmt+3, tzoffset_str_gmt+8);
+console.log( tz );
+
+var last_time = Date.now();
+var last_frames = 0;
+var fps = 0;
+
+function checkTime(i) {
+    if (i < 10) {i = "0" + i;}  // add zero in front of numbers < 10
+    return i;
+}
+
+function checkTimeMs(i) {
+    if (i < 10) {i = "00" + i; return i;}  // add zero in front of numbers < 10
+    if (i < 100) {i = "0" + i;}  // add zero in front of numbers < 10
+    return i;
+}
+
+
+function updateTimeISO()
+{
+    // based on https://stackoverflow.com/a/28149561
+    const now = Date.now();
+    var localISOTime = (new Date(now - tzoffset)).toISOString().slice(0, -1) + tz;
+    cmd = localISOTime;
+
+    // based on https://gist.github.com/capfsb/3fd1b700b4732debb29aefd576cf54ef
+    last_frames ++;
+    if (now > last_time + 1000) {
+        fps = Math.round( ( last_frames * 10000 ) / ( now - last_time ) ) / 10;
+        last_time = now;
+        last_frames = 0;
+    }
+}
+
+function updateTimeGoPro()
+{
+    // based on https://stackoverflow.com/a/28149561
+    var today = new Date();
+
+    var yy = today.getFullYear() - 2000;
+    var mm = today.getMonth() + 1;
+    var dd = today.getDate();
+    var h = today.getHours();
+    var m = today.getMinutes();
+    var s = today.getSeconds();
+    var ms = today.getMilliseconds();
+
+    yy = checkTime(yy);
+    mm = checkTime(mm);
+    dd = checkTime(dd);
+    h = checkTime(h);
+    m = checkTime(m);
+    s = checkTime(s);
+    ms = checkTimeMs(ms);
+
+    cmd = "oT" + yy + mm + dd + h + m + s + "." + ms;
+
+    // based on https://gist.github.com/capfsb/3fd1b700b4732debb29aefd576cf54ef
+    last_frames ++;
+    if (today > last_time + 1000) {
+        fps = Math.round( ( last_frames * 10000 ) / ( today - last_time ) ) / 10;
+        last_time = today.getTime();
+        last_frames = 0;
+    }
+}
+
+function updateTime()
+{
+    if (gopro_mode) {
+        updateTimeGoPro();
+    } else {
+        updateTimeISO();
+    }
+}
+
+function makeQR() 
+{
+    qrcode = new QRCode(document.getElementById("qrcode"), 
+            {
+                text : cmd,
+                width : 360,
+                height : 360,
+                correctLevel : QRCode.CorrectLevel.M
+            });
+}
+
+function timeLoop()
+{  
+    updateTime();
+
+    var changed = false;
+    if(cmd != lasttimecmd)
+    {
+        changed = true;
+        lasttimecmd = cmd;
+    }
+
+    if(changed === true)
+    {
+        qrcode.clear(); 
+        qrcode.makeCode(cmd);
+        document.getElementById("qrtext").innerHTML = cmd;
+        document.getElementById("fpstext").innerHTML = fps;
+    }
+
+    var t = setTimeout(timeLoop, delay);
+}
+
+function update_delay()
+{
+    delay = Number(document.getElementById("delaytext").value);
+}
+
+function update_format()
+{
+    gopro_mode = document.getElementById("formattext").checked;
+}
+
+</script>
+
+<div id="qrcode_txt">
+ <center>
+  <div id="qrcode"></div><br>
+  <b><font color="#009FDF">Timestamp: </font></b> <em id="qrtext"></em><br/>
+  <b><font color="#009FDF">FPS: </font></b> <em id="fpstext"></em><br/>
+  <b><font color="#009FDF">Delay: </font></b><input type="number" id="delaytext" name="delaytext" min="0" max="1000" value="15" onchange="update_delay()"/>ms<br/>
+  <b><font color="#009FDF">GoPro fmt: </font></b><input type="checkbox" id="formattext" name="formattext" checked onchange="update_format()"/><br/>
+  This QR code generator is based on <a href="https://github.com/gopro/labs/tree/master/docs/qr">
+  GoPro Labs
+  </a>
+ </center>
+</div>
+
+<script>
+// update delay based on the URL parameter
+let urlParams = new URLSearchParams(document.location.search);
+var delay_url = urlParams.get('delay');
+if(delay_url !== null) {
+    delay_url = parseInt(delay_url);
+    if (delay_url > 0) {
+        document.getElementById("delaytext").value = delay_url;
+    }
+}
+
+update_delay();
+update_format();
+makeQR();
+timeLoop();
+</script>
+
