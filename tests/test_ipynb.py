@@ -74,3 +74,6 @@ class TestPyCalib(unittest.TestCase):
 
     def test_sphere(self):
         self.run_ipynb('sphere.ipynb')
+
+    def test_qrtimecode(self):
+        self.run_ipynb('qrtimecode.ipynb')
