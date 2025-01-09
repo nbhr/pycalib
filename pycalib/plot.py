@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-from mpl_toolkits.mplot3d import Axes3D
 
 def axisEqual3D(ax):
     """
@@ -16,7 +15,7 @@ def axisEqual3D(ax):
         getattr(ax, 'set_{}lim'.format(dim))(ctr - r, ctr + r)
         getattr(ax, 'set_{}label'.format(dim))(dim)
 
-def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_length=3):
+def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_length=3, label=None):
     """Plot a camera in 3D
 
     Args:
@@ -55,8 +54,11 @@ def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_leng
     ax.plot(L1234[:,0], L1234[:,1], L1234[:,2], "-", color=color)
     ax.plot(L253[:,0], L253[:,1], L253[:,2], "-", color=color)
 
+    if label is not None:
+        ax.text(ps_w[0][0], ps_w[0][1], ps_w[0][2], label)
 
-def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=False):
+
+def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=False, label=None):
     """Plot cameras and points in 3D
 
     Args:
@@ -82,7 +84,7 @@ def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=F
             scale *= l
 
     fig = plt.figure()
-    ax = Axes3D(fig, auto_add_to_figure=False)
+    ax = plt.axes(projection='3d')
     fig.add_axes(ax)
     ax.set_xlim(p[:,0].min(), p[:,0].max())
     ax.set_ylim(p[:,1].min(), p[:,1].max())
@@ -90,9 +92,11 @@ def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=F
     #ax.set_ylim(-lim, lim)
     #ax.set_zlim(0, lim)
     ax.plot(points_3d[:,0], points_3d[:,1], points_3d[:,2], "o")
-    cmap = plt.get_cmap("tab10")
+    cmap = plt.get_cmap("tab20")
+    if label is None:
+        label = [ f'CAM{i}' for i in range(Nc) ]
     for i in range(Nc):
-        plotCamera(ax, R[i].T, p[i], color=cmap(i), scale=scale)
+        plotCamera(ax, R[i].T, p[i], color=cmap(i), scale=scale, label=label[i])
         #plotCamera(ax, R[i].T, - R[i].T @ t[i][:,None], cmap(i), scale)
     #plt.savefig('a.png')
 
@@ -107,6 +111,6 @@ def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=F
         ax.text(s, 0, 0, 'X')
         ax.text(0, s, 0, 'Y')
 
-    fig.show()
+    #fig.show()
     return fig
 

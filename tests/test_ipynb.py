@@ -45,6 +45,18 @@ class TestPyCalib(unittest.TestCase):
     def test_charuco_diamond(self):
         self.run_ipynb('charuco_diamond.ipynb')
 
+    def test_example_gopro_step1_incalib(self):
+        self.run_ipynb('example_gopro_step1_incalib.ipynb')
+
+    def test_example_gopro_step2_kp(self):
+        self.run_ipynb('example_gopro_step2_kp.ipynb')
+
+    def test_example_gopro_step3_ba(self):
+        self.run_ipynb('example_gopro_step3_ba.ipynb')
+
+    def test_example_gopro_step4_floor(self):
+        self.run_ipynb('example_gopro_step4_floor.ipynb')
+
     def test_excalib_2d(self):
         self.run_ipynb('excalib_2d.ipynb')
 
@@ -65,9 +77,6 @@ class TestPyCalib(unittest.TestCase):
 
     def test_ncam_triangulate(self):
         self.run_ipynb('ncam_triangulate.ipynb')
-
-    def test_example_gopro_ba(self):
-        self.run_ipynb('example_gopro_ba.ipynb')
 
     def test_excalib_charuco(self):
         self.run_ipynb('excalib_charuco.ipynb')

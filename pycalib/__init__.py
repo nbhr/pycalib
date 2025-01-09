@@ -1,5 +1,5 @@
 __all__ = ["ba", "bal",  "calib", "plot", "util", "sphere", "diamond", "timestamp"]
-__version__ = '2024.12.25.1'
+__version__ = '2025.1.10.1'
 
 from .ba import *
 from .bal import *

@@ -1,6 +1,6 @@
 # Simple Camera Calibration in Python for Beginners
 
-This is a collection of algorithms related to multiple view camera calibration in computer vision.  Please note that the goal of this package is to provide *minimal* examples to demostrate the concept for beginners (i.e., students).  For large-scale, realtime, accurate, robust, production-quality implementations, or for implementations for your specific situation, please consult your advisor.
+This is a collection of algorithms related to multiple view camera calibration in computer vision.  Please note that the goal of this package is to provide *minimal* examples to demonstrate the concept for beginners (i.e., students).  For large-scale, realtime, accurate, robust, production-quality implementations, or for implementations for your specific situation, please consult your advisor.
 
 
 ## Disclaimer
@@ -24,10 +24,17 @@ The pip installation, however, does not include examples in [`./ipynb/`](./ipynb
 Notice that the scripts in `./tools/` are not supposed to run in Colab/Jupyter.
 
 
-## Examples
+## Usage
 
-1. [Extrinsic calibration of 15 GoPro cameras](./ipynb/example_gopro_ba.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/example_gopro_ba.ipynb)
-   * Given 2D-2D correspondences, this example calibrates the extrinsic parameters of 15 GoPro cams.
+### [Example] Calibration of 15 GoPro cameras
+1. [Intrinsic calibration](./ipynb/example_gopro_step1_incalib.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/example_gopro_step1_incalib.ipynb)
+   * Intrinsic camera calibration from a video of ChAruCo pattern.
+2. [2D keypoint detection](./ipynb/example_gopro_step2_kp.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/example_gopro_step2_kp.ipynb)
+   * ChAruCo corner detection to find 2D-2D corresponding points between cameras.
+3. [Extrinsic calibration](./ipynb/example_gopro_step3_ba.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/example_gopro_step3_ba.ipynb)
+   * Extrinsic camera calibartion from 2D-2D correspondences.
+4. [Scale / orientation alignment](./ipynb/example_gopro_step4_floor.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/example_gopro_step4_floor.ipynb)
+   * Scale / orientation alignment of the world coordinate system by capturing an AruCo marker on the floor.
 
 ### Single camera
 
@@ -74,7 +81,7 @@ Also you may want to read Section A6.3 "A sparse Levenberg-Marquardt algorithm" 
 
 1. **Linear calibration:** Use `numpy`.
 2. **Non-linear (including bundule adjustment):** Try [`scipy.optimize.least_squares`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html) first.
-   1. Implement your objective function as simple as possible. You do not need to consider the computational efficiency at all. *"Done is better than perfect."*
+   1. Implement your objective function as simply as possible. You do not need to consider the computational efficiency at all. *"Done is better than perfect."*
       * Test with the toy example and make sure that your objective function returns zero for the ground-truth parameter.
    2. If your simple objective function above is unacceptably slow, try the followings in this order.
       1. Ask yourself again before trying to make it faster.  Is it really unacceptable?  If your calibration can finish in an hour and you do not do it so often, it might be OK for example. *"Premature optimization is the root of all evil."* (D. Knuth).
