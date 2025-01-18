@@ -27,8 +27,10 @@ Notice that the scripts in `./tools/` are not supposed to run in Colab/Jupyter.
 ## Usage
 
 ### [Example] Calibration of 15 GoPro cameras
+
 1. [Intrinsic calibration](./ipynb/example_gopro_step1_incalib.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/example_gopro_step1_incalib.ipynb)
    * Intrinsic camera calibration from a video of ChAruCo pattern.
+   * GoPro fisheye lens distortion is handled by the rational model in OpenCV
 2. [2D keypoint detection](./ipynb/example_gopro_step2_kp.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/example_gopro_step2_kp.ipynb)
    * ChAruCo corner detection to find 2D-2D corresponding points between cameras.
 3. [Extrinsic calibration](./ipynb/example_gopro_step3_ba.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/example_gopro_step3_ba.ipynb)
@@ -39,7 +41,6 @@ Notice that the scripts in `./tools/` are not supposed to run in Colab/Jupyter.
 ### Single camera
 
 1. [Intrinsic calibration with charuco images](./ipynb/incalib_charuco.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/incalib_charuco.ipynb)
-   * GoPro fisheye lens distortion is handled by the rational model in OpenCV
 2. [Intrinsic calibration with chessboard images](./ipynb/incalib_chess.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/incalib_chess.ipynb)
    * Zhang's method
 3. [Extrinsic calibration w.r.t. a charuco board](./ipynb/excalib_charuco.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_charuco.ipynb)
@@ -65,6 +66,7 @@ Notice that the scripts in `./tools/` are not supposed to run in Colab/Jupyter.
    * A linear registration of pairwise poses into a single coordinate system
 6. [N-view bundle adjustment](./ipynb/ncam_ba.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_ba.ipynb)
    * A non-linear minization of reprojection errors
+   * Each camera can spesify the parameters to optimize and to share with each other
 7. [N-view time sync](./ipynb/qrtimecode.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/qrtimecode.ipynb)
    * GoPro compatible QR time sync pattern generator, detector, and offset estimator
 

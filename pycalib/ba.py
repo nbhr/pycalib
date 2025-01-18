@@ -75,17 +75,32 @@ def x2c(x, c0, mask):
     else:
         # 2D == camera-wise mask
         assert mask.shape == (n_cameras, 17)
-        n_params_total = np.sum(mask != 0)
-        camera_params = camera_params.flatten()
-        camera_params[mask.flatten()] = x[:n_params_total]
-        camera_params = camera_params.reshape((n_cameras, 17))
+
+        if mask.dtype == bool:
+            n_params_total = np.sum(mask != 0)
+            camera_params = camera_params.flatten()
+            camera_params[mask.flatten()] = x[:n_params_total]
+            camera_params = camera_params.reshape((n_cameras, 17))
+        else:
+            assert mask.dtype == int
+            uval, uval_indices, uval_inverse, uval_counts = np.unique(mask, return_index=True, return_inverse=True, return_counts=True)
+            idx = uval_inverse.reshape(mask.shape)
+            camera_params[mask != 0] = x[uval_inverse[mask.flatten() != 0]-1]
+            n_params_total = np.sum(uval != 0)
 
     assert camera_params.shape == (n_cameras, 17)
     return camera_params, n_params_total
 
 def c2x(c, mask):
     assert c.shape == mask.shape
-    x = c[mask != 0].flatten()
+
+    if mask.dtype == bool:
+        x = c[mask != 0].flatten()
+    else:
+        assert mask.dtype == int
+        uval, uval_indices = np.unique(mask, return_index=True)
+        x = c.flatten()[uval_indices[np.where(uval != 0)[0]]]
+
     return x
 
 def reprojection_error(params, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, cam0):
@@ -104,14 +119,13 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
     # n: parameters (camera params + num of 3d points x 3)
 
     assert len(mask.shape) == 2
+    assert mask.dtype == int
 
     # find the mask boundary per camera
-    bmask = (mask != 0)
-    imask = np.cumsum(bmask).reshape(mask.shape)
-    mask_min = np.min(imask, axis=1) - 1
-    mask_max = np.max(imask, axis=1)
+    uval, uval_indices, uval_inverse, uval_counts = np.unique(mask, return_index=True, return_inverse=True, return_counts=True)
+    mask_idx = uval_inverse.reshape(mask.shape)
 
-    n_params = np.sum(mask != 0)
+    n_params = np.sum(uval != 0)
 
     m = camera_indices.size * 2
     n = n_params + n_points * 3
@@ -120,14 +134,19 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
     # for each camera
     for i in range(len(mask)):
         idx = np.where(camera_indices == i)[0]
-        A[2 * idx, mask_min[i]:mask_max[i]] = 1
-        A[2 * idx+1, mask_min[i]:mask_max[i]] = 1
+        u = np.unique(mask_idx[i,:])
+        u = u[u != 0] - 1
+
+        for j in u:
+            A[2 * idx, j] = 1
+            A[2 * idx+1, j] = 1
 
     i = np.arange(camera_indices.size)
     for s in range(3):
         A[2 * i, n_params + point_indices * 3 + s] = 1
         A[2 * i + 1, n_params + point_indices * 3 + s] = 1
 
+    #print(A.toarray())
     return A
 
 def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None, weights=None, loss='linear'):
@@ -184,14 +203,19 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     assert camera_params.shape[1] == 17, camera_params.shape[1]
     pycalib.util.check_observations(camera_indices, point_indices, points_2d)
 
-    # mask is 2D
+    # mask is 2D int>=0
     if mask is None:
         mask = np.ones(camera_params.shape, dtype=bool)
     elif mask.shape == (17,):
         # 1D -> 2D
         mask = np.tile(mask, (len(camera_params), 1))
-    assert mask.dtype == int or mask.dtype == bool
+    if mask.dtype == bool:
+        m = np.arange(len(mask.flatten())).reshape(mask.shape) + 1
+        m[mask == 0] = 0
+        mask = m
+    assert mask.dtype == int
     assert mask.shape == camera_params.shape
+    assert np.min(mask) >= 0
 
     # weight is 1D
     if weights is None:
