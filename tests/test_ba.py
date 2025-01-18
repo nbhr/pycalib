@@ -12,6 +12,7 @@ class TestPyCalibBa(unittest.TestCase):
 
     def test_bal(self):
         if not os.path.isfile(self.BAL_FILENAME):
+            import urllib.request
             urllib.request.urlretrieve(self.BAL_URL, self.BAL_FILENAME)
 
         with bz2.open(self.BAL_FILENAME) as fp:
@@ -26,8 +27,12 @@ class TestPyCalibBa(unittest.TestCase):
 
         print(mask, len(mask))
 
-        ret = pycalib.ba.bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, mask=mask)
-        print(ret)
+        cam_opt, X_opt, e, ret = pycalib.ba.bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, mask=mask)
+
+        print(f'cost = {ret.cost}')
+        print(f'reprojection error = {e}')
+        self.assertTrue(ret.cost < 9963)
+        self.assertTrue(e < 0.7062)
 
 if __name__ == '__main__':
     unittest.main()

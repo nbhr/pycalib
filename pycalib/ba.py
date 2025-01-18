@@ -61,32 +61,72 @@ def project(points, camera_params):
 
     return points_proj
 
+def x2c(x, c0, mask):
+    # base params
+    camera_params = c0.copy()
+    n_cameras = len(camera_params)
+    assert c0.shape == (n_cameras, 17)
+
+    if mask.shape == (17,):
+        # 1D == shared mask
+        n_params = np.sum(mask)
+        n_params_total = n_cameras * n_params
+        camera_params[:, mask] = x[:n_params_total].reshape((n_cameras, n_params))
+    else:
+        # 2D == camera-wise mask
+        assert mask.shape == (n_cameras, 17)
+        n_params_total = np.sum(mask != 0)
+        camera_params = camera_params.flatten()
+        camera_params[mask.flatten()] = x[:n_params_total]
+        camera_params = camera_params.reshape((n_cameras, 17))
+
+    assert camera_params.shape == (n_cameras, 17)
+    return camera_params, n_params_total
+
+def c2x(c, mask):
+    assert c.shape == mask.shape
+    x = c[mask != 0].flatten()
+    return x
+
 def reprojection_error(params, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, cam0):
     """Compute residuals.
 
     `params` contains camera parameters and 3-D coordinates.
     """
-    n_params = np.sum(mask)
-    camera_params = cam0.reshape((n_cameras, 17))
-    camera_params[:, mask] = params[:n_cameras * n_params].reshape((n_cameras, n_params))
-    # camera_params = params[:n_cameras * 17].reshape((n_cameras, 17))
-    points_3d = params[n_cameras * n_params:].reshape((n_points, 3))
+    camera_params, n_params = x2c(params, cam0, mask)
+    points_3d = params[n_params:].reshape((n_points, 3))
     points_proj = project(points_3d[point_indices], camera_params[camera_indices])
     return ((points_proj - points_2d) * weights[:,None]).ravel()
 
-def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len=17):
+def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, mask):
+    # returns a m-by-n binary matrix
+    # m: observations (num of 2d point x 2 (= u, v))
+    # n: parameters (camera params + num of 3d points x 3)
+
+    assert len(mask.shape) == 2
+
+    # find the mask boundary per camera
+    bmask = (mask != 0)
+    imask = np.cumsum(bmask).reshape(mask.shape)
+    mask_min = np.min(imask, axis=1) - 1
+    mask_max = np.max(imask, axis=1)
+
+    n_params = np.sum(mask != 0)
+
     m = camera_indices.size * 2
-    n = n_cameras * cam_param_len + n_points * 3
+    n = n_params + n_points * 3
     A = lil_matrix((m, n), dtype=int)
 
-    i = np.arange(camera_indices.size)
-    for s in range(cam_param_len):
-        A[2 * i, camera_indices * cam_param_len + s] = 1
-        A[2 * i + 1, camera_indices * cam_param_len + s] = 1
+    # for each camera
+    for i in range(len(mask)):
+        idx = np.where(camera_indices == i)[0]
+        A[2 * idx, mask_min[i]:mask_max[i]] = 1
+        A[2 * idx+1, mask_min[i]:mask_max[i]] = 1
 
+    i = np.arange(camera_indices.size)
     for s in range(3):
-        A[2 * i, n_cameras * cam_param_len + point_indices * 3 + s] = 1
-        A[2 * i + 1, n_cameras * cam_param_len + point_indices * 3 + s] = 1
+        A[2 * i, n_params + point_indices * 3 + s] = 1
+        A[2 * i + 1, n_params + point_indices * 3 + s] = 1
 
     return A
 
@@ -107,7 +147,7 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     points_2d: ndarray
         N x 2 array of 2D points.  points_3d[point_indices[i]] is observed by camera_indices[i] at points_2d[i]
     mask: ndarray
-        A bool array of length 17 to specify the camera parameters to optimize.
+        A bool array of length 17 or a Cx17 bool matrix to specify the camera parameters to optimize.
     weights:
         N array of weights to scale the error at each point.  Set 0 to ignore the point.
     verbose: int
@@ -130,8 +170,10 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
 
     ToDo
     ----
-    * add bounds support
-    * add camera-wise mask
+    - add bounds support
+    - static 3D points
+    - shared camera intrinsic params == moving camera
+    - shared camera extrinsic params == zoom camera
 
     """
 
@@ -142,19 +184,16 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     assert camera_params.shape[1] == 17, camera_params.shape[1]
     pycalib.util.check_observations(camera_indices, point_indices, points_2d)
 
-    """
-    print(camera_params.shape)
-    print(points_3d.shape)
-    print(camera_indices.shape)
-    print(point_indices.shape)
-    print(points_2d.shape)
-    """
-
+    # mask is 2D
     if mask is None:
-        mask = np.ones(camera_params.shape[1], dtype=bool)
-    assert mask.dtype == bool
-    assert len(mask) == camera_params.shape[1]
+        mask = np.ones(camera_params.shape, dtype=bool)
+    elif mask.shape == (17,):
+        # 1D -> 2D
+        mask = np.tile(mask, (len(camera_params), 1))
+    assert mask.dtype == int or mask.dtype == bool
+    assert mask.shape == camera_params.shape
 
+    # weight is 1D
     if weights is None:
         weights = np.ones(len(point_indices))
     assert weights.ndim == 1
@@ -162,16 +201,14 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
 
     camera_params0 = camera_params.copy()
 
-    cam_param_len = np.sum(mask)
-    A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, cam_param_len)
+    A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, mask)
 
-    x0 = np.hstack((camera_params[:, mask].ravel(), points_3d.ravel()))
+    x0 = np.hstack((c2x(camera_params, mask), points_3d.ravel()))
 
     res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', loss=loss, args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, camera_params0))
 
-    n = camera_params[:, mask].size
-    x = res.x[:n]
-    camera_params[:, mask] = x.reshape((n_cameras, -1))
+    camera_params, n = x2c(res.x, camera_params0, mask)
+
     points_3d = res.x[n:].reshape((-1, 3))
 
     e = reprojection_error(res.x, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, camera_params0).reshape((-1, 2))
@@ -240,7 +277,7 @@ def encode_camera_param(rmat, tvec, K, distCoeffs):
     x[8] = K[1,2]
     x[9:9+len(distCoeffs)] = distCoeffs
     return x
-    
+
 def decode_camera_param(x):
     """
     Convert optimized camera parameters (17 params -> mat)
@@ -255,7 +292,7 @@ def decode_camera_param(x):
     K[1,2] = x[8]
     distCoeffs = x[9:17]
     return rmat, tvec, K, distCoeffs
-    
+
 def make_mask(r, t, *, f=False, u0=False, v0=False, k1=False, k2=False, p1=False, p2=False, k3=False, k4=False, k5=False, k6=False):
     """
     Generate a mask to indicate the parameters to be optimized

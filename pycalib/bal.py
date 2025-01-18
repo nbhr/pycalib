@@ -172,7 +172,7 @@ def bal_flip_uv(points_2d):
 #     return camera_params, points_3d, camera_indices, point_indices, points_2d
 
 def bal_cam9_to_cam17(camera_params):
-    """ converts cameras with 9 params (r, t, f, k1, k2) to 17 params (r, t, f, cx, cv, k1, k2, p1, p2, k3, k4, k5, k6) """
+    """ converts cameras with 9 params (r, t, f, k1, k2) to 17 params (r, t, f, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6) """
     n = camera_params.shape[0]
     c, m = bal_cam9_to_cam14(camera_params)
     c = np.hstack( [c, np.zeros((n, 3))] )
@@ -180,7 +180,7 @@ def bal_cam9_to_cam17(camera_params):
     return c, m
 
 def bal_cam9_to_cam14(camera_params):
-    """ converts cameras with 9 params (r, t, f, k1, k2) to 14 params (r, t, f, cx, cv, k1, k2, p1, p2, k3) """
+    """ converts cameras with 9 params (r, t, f, k1, k2) to 14 params (r, t, f, cx, cy, k1, k2, p1, p2, k3) """
     n = camera_params.shape[0]
     assert camera_params.shape[1] == 9
 
