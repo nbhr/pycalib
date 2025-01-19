@@ -77,6 +77,9 @@ def save_calib(filename, *, camera_matrix=None, dist_coeffs=None, rmat=None, tve
         json.dump(J, fp, indent=2)
 
 def open_z(filename, mode):
+    if isinstance(filename, str) is False:
+        return filename
+
     f, e = os.path.splitext(filename)
     if e.lower() == '.gz':
         return gzip.open(filename, mode)

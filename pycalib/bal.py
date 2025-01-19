@@ -103,6 +103,10 @@ def bal_write(file, n_cameras, *, camera_params=None, points_3d=None, camera_ind
         for i in points_3d.flatten():
             file.write(f'{i}\n'.encode('utf-8'))
 
+def bal_info(file):
+    fp = pycalib.util.open_z(file, 'r')
+    n_cameras, n_points, n_observations = map(int, fp.readline().split())
+    return n_cameras, n_points, n_observations
 
 # https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 def bal_read(file, *, verify_correspondences=True, verify_indices=True, n_camparams=9):
