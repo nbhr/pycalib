@@ -9,9 +9,10 @@ def undistort_points(pt2d, cameraMatrix, distCoeffs):
 
 
 def distort_points(pt2d, cameraMatrix, distCoeffs):
-    assert False, "not tested"
     # a bit tricky.
     # http://answers.opencv.org/question/148670/re-distorting-a-set-of-points-after-camera-calibration/
+
+    pt2d = np.ascontiguousarray(pt2d)
 
     # step1. **undistort** without dist & P to get normalized coord.
     n2d = cv2.undistortPoints(pt2d, cameraMatrix, distCoeffs=None, P=None)
@@ -20,7 +21,7 @@ def distort_points(pt2d, cameraMatrix, distCoeffs):
     n3d = cv2.convertPointsToHomogeneous(n2d)
 
     # step3. project WITH dist, and R=I, t=0
-    pt2d_d = cv2.projectPoints(n3d, np.zeros(3), np.zeros(3), cameraMatrix, distCoeffs)
+    pt2d_d = cv2.projectPoints(n3d, np.zeros(3), np.zeros(3), cameraMatrix, distCoeffs)[0]
 
     return pt2d_d
 
