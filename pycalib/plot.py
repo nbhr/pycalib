@@ -15,6 +15,16 @@ def axisEqual3D(ax):
         getattr(ax, 'set_{}lim'.format(dim))(ctr - r, ctr + r)
         getattr(ax, 'set_{}label'.format(dim))(dim)
 
+def plotPoly(ax, corners_Nx3, **kwargs):
+    """Plot a polygon in 3D
+
+    Args:
+        ax (Axis3D): target axis
+        corners_Nx3: Nx3 corner points
+    """
+    corners = np.vstack((corners_Nx3, corners_Nx3[0]))
+    ax.plot(corners[:,0], corners[:,1], corners[:,2], **kwargs)
+
 def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_length=3, label=None):
     """Plot a camera in 3D
 
@@ -114,3 +124,8 @@ def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=F
     #fig.show()
     return fig
 
+def plotMirror(ax, objpts, n, d, label):
+    assert objpts.shape[1] == 3
+    t = - objpts @ n.reshape((3,1)) - d
+    p = objpts - t.reshape((-1,1)) * n.reshape((1,3))
+    ax.plot(p[:,0], p[:,1], p[:,2], label=label)

@@ -1,9 +1,10 @@
 .vscode
-ipynb/output*
+output-*
+tmp-*
 *~
+problem-49-7776-pre.txt.bz2
 
 # Byte-compiled / optimized / DLL files
-problem-49-7776-pre.txt.bz2
 __pycache__/
 *.py[cod]
 *$py.class

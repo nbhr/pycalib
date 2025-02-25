@@ -3,6 +3,7 @@ import os
 import gzip
 import bz2
 import json
+import yaml
 
 def check_observations(camera_indices, point_indices, points_2d, *, allow_unused_camera=False):
     n_observations = points_2d.shape[0]
@@ -43,9 +44,16 @@ def check_calib(K, D, R, T):
         assert T.ndim == 3,             f'tvec.shape = {T.shape} should be (-1, 3, 1)'
         assert T.shape[1:] == (3, 1),   f'tvec.shape = {T.shape} should be (-1, 3, 1)'
 
+def is_yaml(filename):
+    exts = ('.yaml','.yml','.yaml.gz','.yml.gz','.yaml.bz2','.yml.bz2')
+    return filename.lower().endswith(exts)
+
 def load_calib(filename, *, check=True):
     with open_z(filename, 'r') as fp:
-        J = json.load(fp)
+        if is_yaml(filename):
+            J = yaml.safe_load(fp)
+        else:
+            J = json.load(fp)
 
     reproj = J['reproj'] if 'reproj' in J.keys() else -1
     camera_matrix = np.array(J['K']) if 'K' in J.keys() else None
@@ -71,10 +79,13 @@ def save_calib(filename, *, camera_matrix=None, dist_coeffs=None, rmat=None, tve
     if tvec is not None:
         J['t'] = tvec.tolist()
     if reproj is not None:
-        J['reproj'] = reproj
+        J['reproj'] = float(reproj)
 
     with open_z(filename, 'w') as fp:
-        json.dump(J, fp, indent=2)
+        if is_yaml(filename):
+            yaml.dump(J, fp, indent=2)
+        else:
+            json.dump(J, fp, indent=2)
 
 def open_z(filename, mode):
     if isinstance(filename, str) is False:
@@ -100,7 +111,7 @@ def is_shape(a, sz):
 def transpose_to_col(a, m):
     if a.ndim == 1:
         return a.reshape((m, 1))
-    
+
     assert a.ndim == 2, "a is not 2-dim"
     if a.shape[1] == m:
         return a

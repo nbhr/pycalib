@@ -103,7 +103,7 @@ def c2x(c, mask):
 
     return x
 
-def reprojection_error(params, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, cam0):
+def reprojection_error(params, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, inv_stdev, cam0):
     """Compute residuals.
 
     `params` contains camera parameters and 3-D coordinates.
@@ -111,7 +111,10 @@ def reprojection_error(params, n_cameras, n_points, camera_indices, point_indice
     camera_params, n_params = x2c(params, cam0, mask)
     points_3d = params[n_params:].reshape((n_points, 3))
     points_proj = project(points_3d[point_indices], camera_params[camera_indices])
-    return ((points_proj - points_2d) * weights[:,None]).ravel()
+    e = points_proj - points_2d
+    if inv_stdev is not None:
+        e = np.einsum('kij,kj->ki', inv_stdev[point_indices], e)
+    return (e * weights[:,None]).ravel()
 
 def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, mask):
     # returns a m-by-n binary matrix
@@ -149,7 +152,7 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
     #print(A.toarray())
     return A
 
-def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None, weights=None, loss='linear'):
+def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None, weights=None, loss='linear', cov=None):
     """
     Optimize camera poses and intrinsics non-linearly
 
@@ -223,19 +226,41 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     assert weights.ndim == 1
     assert len(weights) == point_indices.shape[0]
 
+    # cov is Np x 2 x 2
+    if cov is not None:
+        assert cov.shape == (n_points, 2, 2)
+        assert np.allclose(cov, np.transpose(cov, axes=(0,2,1))), "cov must be symmetric"
+
+        # Standard deviation matrix == sqrt of covariance matrix
+        # https://en.wikipedia.org/wiki/Standard_deviation#Standard_deviation_matrix
+        # https://en.wikipedia.org/wiki/Square_root_of_a_2_by_2_matrix
+        s = np.sqrt(np.linalg.det(cov))
+        t = np.sqrt(np.trace(cov, axis1=1, axis2=2) + 2*s)
+        assert s.shape == (n_points,)
+        assert t.shape == (n_points,)
+        if np.any(t == 0):
+            print('[WARN] Some of covariance matrices are not positive definite.')
+            t[t==0] = 0.1 # fixme
+        stdev = (1/t).reshape((-1,1,1)) * (cov + s.reshape((-1,1,1))*np.eye(2))
+        assert stdev.shape == (n_points, 2, 2)
+        inv_stdev = np.linalg.inv(stdev)
+        assert inv_stdev.shape == (n_points, 2, 2)
+    else:
+        inv_stdev = None
+
     camera_params0 = camera_params.copy()
 
     A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, mask)
 
     x0 = np.hstack((c2x(camera_params, mask), points_3d.ravel()))
 
-    res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', loss=loss, args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, camera_params0))
+    res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', loss=loss, args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, inv_stdev, camera_params0))
 
     camera_params, n = x2c(res.x, camera_params0, mask)
 
     points_3d = res.x[n:].reshape((-1, 3))
 
-    e = reprojection_error(res.x, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, camera_params0).reshape((-1, 2))
+    e = reprojection_error(res.x, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, None, camera_params0).reshape((-1, 2))
     e = np.linalg.norm(e, axis=1)
     assert( len(e) == n_observations )
     e = np.sqrt(np.mean(e))
