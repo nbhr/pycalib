@@ -34,5 +34,29 @@ class TestPyCalibBa(unittest.TestCase):
         self.assertTrue(ret.cost < 9963)
         self.assertTrue(e < 0.7062)
 
+    def test_sqrt(self):
+        N = 5
+        for i in range(100):
+            A = np.random.randn(N, 2, 2)
+            #ic(A)
+            #ic(np.transpose(A, (0,2,1)))
+            #a = A[1]
+            #ic(a)
+            #ic(a @ a.T)
+            A = np.einsum('nij,njk->nik', A, np.transpose(A, (0,2,1)))
+            #ic(A)
+            self.assertTrue(np.all(np.linalg.det(A)>=0), 'A must be PSD matrices')
+            B = pycalib.ba.sqrt_symmetric_2x2_mat(A)
+            #ic(B)
+            BB = np.einsum('nij,njk->nik', B, B)
+            #ic(BB)
+            self.assertTrue(np.allclose(A, BB))
+
+            iB = np.linalg.inv(B)
+            self.assertTrue(iB.shape == (N, 2, 2))
+            BiB = np.einsum('nij,njk->nik', B, iB)
+            self.assertTrue(np.allclose(BiB, np.tile(np.eye(2), (N, 1, 1))))
+
+
 if __name__ == '__main__':
     unittest.main()

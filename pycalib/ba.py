@@ -10,6 +10,24 @@ import pycalib.calib
 
 # https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
+def sqrt_symmetric_2x2_mat(m_Nx2x2):
+    # https://en.wikipedia.org/wiki/Square_root_of_a_2_by_2_matrix
+    N = m_Nx2x2.shape[0]
+    assert m_Nx2x2.shape == (N,2,2)
+    assert np.allclose(m_Nx2x2, np.transpose(m_Nx2x2, axes=(0,2,1))), "m_Nx2x2 must be symmetric"
+
+    s = np.sqrt(np.linalg.det(m_Nx2x2))
+    t = np.sqrt(np.trace(m_Nx2x2, axis1=1, axis2=2) + 2*s)
+    assert s.shape == (N,)
+    assert t.shape == (N,)
+    if np.any(t == 0):
+        print('[WARN] Some of covariance matrices are not positive definite.')
+        t[t==0] = 0.1 # fixme
+    sq = (1/t).reshape((-1,1,1)) * (m_Nx2x2 + s.reshape((-1,1,1))*np.eye(2))
+    assert sq.shape == (N, 2, 2)
+
+    return sq
+
 def rotate(points, rot_vecs):
     """Rotate points by given rotation vectors.
 
@@ -176,7 +194,8 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
         {0, 1, 2}.  See `verbose` arg of `scipy.optimize.least_squares()`.
     loss: str or callable
         `linear`, `soft_l1`, `huber`, `cauchy`, or `arctan`.  See `loss` arg of `scipy.optimize.least_squares()`.
-
+    cov: ndarray
+        N x 2 x 2 array of covariance matrices of 2D points.
 
     Returns
     -------
@@ -233,16 +252,7 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
 
         # Standard deviation matrix == sqrt of covariance matrix
         # https://en.wikipedia.org/wiki/Standard_deviation#Standard_deviation_matrix
-        # https://en.wikipedia.org/wiki/Square_root_of_a_2_by_2_matrix
-        s = np.sqrt(np.linalg.det(cov))
-        t = np.sqrt(np.trace(cov, axis1=1, axis2=2) + 2*s)
-        assert s.shape == (n_points,)
-        assert t.shape == (n_points,)
-        if np.any(t == 0):
-            print('[WARN] Some of covariance matrices are not positive definite.')
-            t[t==0] = 0.1 # fixme
-        stdev = (1/t).reshape((-1,1,1)) * (cov + s.reshape((-1,1,1))*np.eye(2))
-        assert stdev.shape == (n_points, 2, 2)
+        stdev = sqrt_symmetric_2x2_mat(cov)
         inv_stdev = np.linalg.inv(stdev)
         assert inv_stdev.shape == (n_points, 2, 2)
     else:
