@@ -11,7 +11,21 @@ import pycalib.calib
 # https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
 def sqrt_symmetric_2x2_mat(m_Nx2x2):
-    # https://en.wikipedia.org/wiki/Square_root_of_a_2_by_2_matrix
+    """ Compute the sqrt of symmetric and positive semi-definite 2x2 matrices
+
+    https://en.wikipedia.org/wiki/Square_root_of_a_2_by_2_matrix
+
+    Parameters
+    ----------
+    m_Nx2x2 : ndarray
+        a N x 2 x 2 array (each 2x2 matrix must be symmetric and positive semi-definite)
+
+    Returns
+    -------
+    sq_Nx2x2 : ndarray
+        the sqrt of m_Nx2x2
+    """
+
     N = m_Nx2x2.shape[0]
     assert m_Nx2x2.shape == (N,2,2)
     assert np.allclose(m_Nx2x2, np.transpose(m_Nx2x2, axes=(0,2,1))), "m_Nx2x2 must be symmetric"
@@ -131,7 +145,7 @@ def reprojection_error(params, n_cameras, n_points, camera_indices, point_indice
     points_proj = project(points_3d[point_indices], camera_params[camera_indices])
     e = points_proj - points_2d
     if inv_stdev is not None:
-        e = np.einsum('kij,kj->ki', inv_stdev[point_indices], e)
+        e = np.einsum('kij,kj->ki', inv_stdev, e)
     return (e * weights[:,None]).ravel()
 
 def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, mask):
@@ -213,9 +227,8 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     ----
     - add bounds support
     - static 3D points
-    - shared camera intrinsic params == moving camera
-    - shared camera extrinsic params == zoom camera
-
+    - [x] shared camera intrinsic params == moving camera
+    - [x] shared camera extrinsic params == zoom camera
     """
 
     n_cameras = camera_params.shape[0]
@@ -245,16 +258,16 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     assert weights.ndim == 1
     assert len(weights) == point_indices.shape[0]
 
-    # cov is Np x 2 x 2
+    # cov is No x 2 x 2
     if cov is not None:
-        assert cov.shape == (n_points, 2, 2)
+        assert cov.shape == (n_observations, 2, 2), f'{cov.shape} != {n_observations}x2x2'
         assert np.allclose(cov, np.transpose(cov, axes=(0,2,1))), "cov must be symmetric"
 
         # Standard deviation matrix == sqrt of covariance matrix
         # https://en.wikipedia.org/wiki/Standard_deviation#Standard_deviation_matrix
         stdev = sqrt_symmetric_2x2_mat(cov)
         inv_stdev = np.linalg.inv(stdev)
-        assert inv_stdev.shape == (n_points, 2, 2)
+        assert inv_stdev.shape == (n_observations, 2, 2)
     else:
         inv_stdev = None
 
