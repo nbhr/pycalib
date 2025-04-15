@@ -4,8 +4,11 @@ import pycalib
 from pycalib.util import transpose_to_col
 from skimage.transform import SimilarityTransform, EuclideanTransform
 
-def undistort_points(pt2d, cameraMatrix, distCoeffs):
-    return cv2.undistortPoints(pt2d, cameraMatrix, distCoeffs, P=cameraMatrix)
+def undistort_points(pt2d, cameraMatrix, distCoeffs, criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 1e-8)):
+    #return cv2.undistortPoints(pt2d, cameraMatrix, distCoeffs, P=cameraMatrix)
+    # https://stackoverflow.com/questions/62170402/opencv-undistort-for-images-and-undistortpoints-are-inconsistent
+    # https://github.com/opencv/opencv/issues/20736
+    return cv2.undistortPointsIter(pt2d, cameraMatrix, distCoeffs, np.eye(3), cameraMatrix, criteria)
 
 
 def distort_points(pt2d, cameraMatrix, distCoeffs):
