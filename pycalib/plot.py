@@ -121,6 +121,7 @@ def plotCameras(camera_params, points_3d, *, scale=-1, title=None, draw_zplane=F
         ax.text(s, 0, 0, 'X')
         ax.text(0, s, 0, 'Y')
 
+    axisEqual3D(ax)
     #fig.show()
     return fig
 
