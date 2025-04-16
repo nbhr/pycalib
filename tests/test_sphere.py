@@ -39,15 +39,15 @@ class TestPyCalibSphere(unittest.TestCase):
         for X_gt, c_gt, img, cnt in zip(X_gt_all, c_gt_all, img_all, cont_all):
             ellipse = cv2.fitEllipse(cnt)
             c = pycalib.calc_sphere_center_from_ellipse(ellipse, K)
-            self.assertTrue(np.linalg.norm(c[:2] - c_gt[:2]) < 1.0)
+            self.assertLess(np.linalg.norm(c[:2] - c_gt[:2]), 1.0)
 
             c3d = pycalib.fit_sphere_center_3d_to_ellipse(cnt, K)
             c = K @ c3d.T
             c = c / c[2]
-            self.assertTrue(np.linalg.norm(c[:2] - c_gt[:2]) < 1.0)
+            self.assertLess(np.linalg.norm(c[:2] - c_gt[:2]), 1.0)
 
             c3d = pycalib.fit_sphere_center_3d_to_ellipse(cnt, K, resample=True)
             c = K @ c3d.T
             c = c / c[2]
-            self.assertTrue(np.linalg.norm(c[:2] - c_gt[:2]) < 1.0)
+            self.assertLess(np.linalg.norm(c[:2] - c_gt[:2]), 1.0)
 

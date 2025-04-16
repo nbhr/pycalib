@@ -20,9 +20,9 @@ class TestPyCalibAo(unittest.TestCase):
         P2 = s2 * (R2 @ P) + t2[:, None]
 
         # check
-        self.assertTrue(np.allclose(R, R2))
-        self.assertTrue(np.allclose(t, t2))
-        self.assertTrue(np.allclose(s, s2))
+        np.testing.assert_allclose(R, R2)
+        np.testing.assert_allclose(t, t2)
+        np.testing.assert_allclose(s, s2)
 
     def test_ao2(self):
         # synthetic data
@@ -38,7 +38,7 @@ class TestPyCalibAo(unittest.TestCase):
         P2 = s2 * (R2 @ P) + t2[:, None]
 
         # check
-        self.assertTrue(np.allclose(R, R2))
-        self.assertTrue(np.allclose(t, t2))
-        self.assertTrue(np.allclose(s, s2))
+        np.testing.assert_allclose(R, R2)
+        np.testing.assert_allclose(t, t2)
+        np.testing.assert_allclose(s, s2)
 

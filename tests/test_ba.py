@@ -31,8 +31,8 @@ class TestPyCalibBa(unittest.TestCase):
 
         print(f'cost = {ret.cost}')
         print(f'reprojection error = {e}')
-        self.assertTrue(ret.cost < 9963)
-        self.assertTrue(e < 0.7062)
+        self.assertLess(ret.cost, 9963)
+        self.assertLess(e, 0.7062)
 
     def test_sqrt(self):
         N = 5
@@ -50,12 +50,12 @@ class TestPyCalibBa(unittest.TestCase):
             #ic(B)
             BB = np.einsum('nij,njk->nik', B, B)
             #ic(BB)
-            self.assertTrue(np.allclose(A, BB))
+            np.testing.assert_allclose(A, BB)
 
             iB = np.linalg.inv(B)
-            self.assertTrue(iB.shape == (N, 2, 2))
+            self.assertEqual(iB.shape, (N, 2, 2))
             BiB = np.einsum('nij,njk->nik', B, iB)
-            self.assertTrue(np.allclose(BiB, np.tile(np.eye(2), (N, 1, 1))))
+            np.testing.assert_allclose(BiB, np.tile(np.eye(2), (N, 1, 1)), atol=1e-6, rtol=1e-6)
 
 
 if __name__ == '__main__':
