@@ -62,20 +62,22 @@ Notice that the pip installation does not include examples in [`./ipynb/`](./ipy
 
 1. [Multi-view triangulation](./ipynb/ncam_triangulate.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_triangulate.ipynb)
    - N-view DLT
-2. [ChAruco diamond marker detection for 2D-2D correspondences](./ipynb/charuco_diamond.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/charuco_diamond.ipynb)
+2. [Robust brute-force multi-view triangulation](./ipynb/ncam_triangulate_consensus.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_triangulate_consensus.ipynb)
+   - Robust but brute-force n-view DLT with occlusion handling and outlier rejection
+3. [ChAruco diamond marker detection for 2D-2D correspondences](./ipynb/charuco_diamond.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/charuco_diamond.ipynb)
    - For extrinsic calibration using a ChAruco diamond marker.
    - Also can be used for PnP, i.e., extrinsic calibration w.r.t. the diamond marker
-3. [Sphere center detection for 2D-2D correspondences](./ipynb/sphere.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/sphere.ipynb)
+4. [Sphere center detection for 2D-2D correspondences](./ipynb/sphere.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/sphere.ipynb)
    - For extrinsic calibration using a ball.
    - A color-based ball detection is provided as [`tools/detect_by_color_gui.py`](tools/detect_by_color_gui.py) and [`tools/detect_by_color.py`](tools/detect_by_color.py).  The former GUI version can be used to sample foreground and background pixel colors, and the latter can be used to process each frame.
-4. [2-view extrinsic calibration from 2D-2D correspondences](./ipynb/excalib_2d.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_2d.ipynb)
+5. [2-view extrinsic calibration from 2D-2D correspondences](./ipynb/excalib_2d.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/excalib_2d.ipynb)
    - Decomposition of the essential matrix to $R$ and $t$.
-5. [N-view registration](./ipynb/ncam_registration.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_registration.ipynb)
+6. [N-view registration](./ipynb/ncam_registration.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_registration.ipynb)
    - A linear registration of pairwise poses into a single coordinate system
-6. [N-view bundle adjustment](./ipynb/ncam_ba.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_ba.ipynb)
+7. [N-view bundle adjustment](./ipynb/ncam_ba.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_ba.ipynb)
    - A non-linear minization of reprojection errors
    - Each camera can spesify the parameters to optimize and to share with each other
-7. [N-view time sync](./ipynb/qrtimecode.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/qrtimecode.ipynb)
+8. [N-view time sync](./ipynb/qrtimecode.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/qrtimecode.ipynb)
    - GoPro compatible QR time sync pattern generator, detector, and offset estimator
 
 ### Mirror
