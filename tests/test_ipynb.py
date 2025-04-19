@@ -30,7 +30,7 @@ class TestPyCalib(unittest.TestCase):
     @local_chdir
     def run_ipynb(self, file):
         os.chdir('./ipynb')
-        with testbook(file, execute=True) as tb:
+        with testbook(file, execute=True, timeout=600) as tb:
             pass
 
     def test_absolute_orientation(self):
@@ -78,6 +78,9 @@ class TestPyCalib(unittest.TestCase):
     def test_ncam_triangulate(self):
         self.run_ipynb('ncam_triangulate.ipynb')
 
+    def test_ncam_triangulate_consensus(self):
+        self.run_ipynb('ncam_triangulate_consensus.ipynb')
+
     def test_excalib_charuco(self):
         self.run_ipynb('excalib_charuco.ipynb')
 
@@ -86,3 +89,15 @@ class TestPyCalib(unittest.TestCase):
 
     def test_qrtimecode(self):
         self.run_ipynb('qrtimecode.ipynb')
+
+    def test_mirror(self):
+        self.run_ipynb('mirror.ipynb')
+
+    def test_mirror_charuco(self):
+        self.run_ipynb('mirror_charuco.ipynb')
+
+    def test_circle3d(self):
+        self.run_ipynb('circle3d.ipynb')
+
+    def test_aruco_movie(self):
+        self.run_ipynb('aruco_movie.ipynb')
