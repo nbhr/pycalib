@@ -4,7 +4,7 @@ import pycalib
 from pycalib.util import transpose_to_col
 from skimage.transform import SimilarityTransform, EuclideanTransform
 
-def epipolar_distance(x1h_Nx3, x2h_Nx3, F):
+def signed_epipolar_distance(x1h_Nx3, x2h_Nx3, F):
     assert x1h_Nx3.shape[1] == 3
     assert x2h_Nx3.shape[1] == 3
     l2_3xN = F @ x1h_Nx3.T
@@ -12,6 +12,14 @@ def epipolar_distance(x1h_Nx3, x2h_Nx3, F):
     num = np.einsum('ni,in->n', x2h_Nx3, l2_3xN)
     return num / den
 
+def signed_sampson_error(x1h_Nx3, x2h_Nx3, F):
+    assert x1h_Nx3.shape[1] == 3
+    assert x2h_Nx3.shape[1] == 3
+    l1_3xN = (x1h_Nx3 @ F.T).T
+    l2_3xN = F @ x1h_Nx3.T
+    num = np.einsum('ni,in->n', x2h_Nx3, l2_3xN)
+    den = np.sum(l1_3xN[:2,:]**2, axis=0) + np.sum(l2_3xN[:2,:]**2, axis=0)
+    return num / np.sqrt(den)
 
 def undistort_points(pt2d, cameraMatrix, distCoeffs, criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 1000, 1e-8)):
     #return cv2.undistortPoints(pt2d, cameraMatrix, distCoeffs, P=cameraMatrix)
