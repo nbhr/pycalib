@@ -4,6 +4,15 @@ import pycalib
 from pycalib.util import transpose_to_col
 from skimage.transform import SimilarityTransform, EuclideanTransform
 
+def epipolar_distance(x1h_Nx3, x2h_Nx3, F):
+    assert x1h_Nx3.shape[1] == 3
+    assert x2h_Nx3.shape[1] == 3
+    l2_3xN = F @ x1h_Nx3.T
+    den = np.linalg.norm(l2_3xN[:2,:], axis=0)
+    num = np.einsum('ni,in->n', x2h_Nx3, l2_3xN)
+    return num / den
+
+
 def undistort_points(pt2d, cameraMatrix, distCoeffs, criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 1000, 1e-8)):
     #return cv2.undistortPoints(pt2d, cameraMatrix, distCoeffs, P=cameraMatrix)
     # https://stackoverflow.com/questions/62170402/opencv-undistort-for-images-and-undistortpoints-are-inconsistent
