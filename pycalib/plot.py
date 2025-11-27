@@ -25,20 +25,26 @@ def plotPoly(ax, corners_Nx3, **kwargs):
     corners = np.vstack((corners_Nx3, corners_Nx3[0]))
     ax.plot(corners[:,0], corners[:,1], corners[:,2], **kwargs)
 
-def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_length=3, label=None):
+def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_length=3, label=None, is_w2c=False):
     """Plot a camera in 3D
 
     Args:
         ax (Axis3D): target axis
-        R: 3x3 c2w rotation matrix
-        t: 3x1 c2w translation vector
+        R: 3x3 c2w rotation matrix (interpreted as w2c if is_w2c is set)
+        t: 3x1 c2w translation vector (interpreted as w2c if is_w2c is set)
         c: color string
         scale: scaling factor
         width: horizontal size of the camera screen
         height: vertical size of the camera screen
         focal_length: height of the camera cone
+        is_w2c: set True if R, t are w2c
     """
+
     t = t.reshape((3, 1))
+
+    if is_w2c:
+        R = R.T
+        t = -R@t
 
     w = width
     h = height
