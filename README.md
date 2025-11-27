@@ -74,6 +74,8 @@ Notice that the pip installation does not include examples in [`./ipynb/`](./ipy
    - Each camera can spesify the parameters to optimize and to share with each other
 7. [N-view time sync](./ipynb/qrtimecode.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/qrtimecode.ipynb)
    - GoPro compatible QR time sync pattern generator, detector, and offset estimator
+8. [Homography](./ipynb/homography.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/homography.ipynb)
+   - Homography from one camera plane to another
 
 ### Mirror
 
