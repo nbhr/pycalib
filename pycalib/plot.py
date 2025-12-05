@@ -25,7 +25,7 @@ def plotPoly(ax, corners_Nx3, **kwargs):
     corners = np.vstack((corners_Nx3, corners_Nx3[0]))
     ax.plot(corners[:,0], corners[:,1], corners[:,2], **kwargs)
 
-def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_length=3, label=None, is_w2c=False):
+def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_length=3, label=None, is_w2c=False, legend=None):
     """Plot a camera in 3D
 
     Args:
@@ -37,6 +37,8 @@ def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_leng
         width: horizontal size of the camera screen
         height: vertical size of the camera screen
         focal_length: height of the camera cone
+        label: text at the camera position
+        legend: text shown in the legend
         is_w2c: set True if R, t are w2c
     """
 
@@ -61,7 +63,7 @@ def plotCamera(ax, R, t, *, color=None, scale=1, width=2, height=1.5, focal_leng
     L1234 = np.array([ps_w[1], ps_w[2], ps_w[3], ps_w[4], ps_w[1]])
     L253 = np.array([ps_w[2], ps_w[5], ps_w[3]])
 
-    p = ax.plot(L01[:,0], L01[:,1], L01[:,2], "-", color=color)
+    p = ax.plot(L01[:,0], L01[:,1], L01[:,2], "-", color=color, label=legend)
     if color is None:
         color = p[-1].get_color()
     ax.plot(L02[:,0], L02[:,1], L02[:,2], "-", color=color)

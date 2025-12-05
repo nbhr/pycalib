@@ -1,15 +1,31 @@
-__all__ = ["ba", "bal",  "calib", "plot", "util", "sphere", "diamond", "timestamp", "mirror", "circle", "robust"]
-__version__ = '2025.4.19.1'
+__all__ = [
+    "ba",
+    "bal",
+    "calib",
+    "circle",
+    "diamond",
+    "mirror",
+    "plot",
+    "robust",
+    "rotation",
+    "sphere",
+    "stereo",
+    "timestamp",
+    "util",
+    ]
+
+__version__ = '2025.12.5.1'
 
 from .ba import *
 from .bal import *
 from .calib import *
-from .plot import *
-from .util import *
-from .sphere import *
-from .diamond import *
-from .timestamp import *
-from .mirror import tnm, tnm_ba, householder
 from .circle import *
+from .diamond import *
+from .mirror import tnm, tnm_ba, householder
+from .plot import *
 from .robust import *
-
+from .rotation import *
+from .sphere import *
+from .stereo import *
+from .timestamp import *
+from .util import *
