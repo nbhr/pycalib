@@ -76,6 +76,8 @@ Notice that the pip installation does not include examples in [`./ipynb/`](./ipy
    - GoPro compatible QR time sync pattern generator, detector, and offset estimator
 8. [Homography](./ipynb/homography.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/homography.ipynb)
    - Homography from one camera plane to another
+9. [Stereo rectification](./ipynb/rectification.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/rectification.ipynb)
+   - Horizontal / vertical stereo rectification for multi-view system and triangulation in WCS
 
 ### Mirror
 
