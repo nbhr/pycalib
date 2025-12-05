@@ -16,6 +16,7 @@ python3 -m pip install -U pycalib-simple
 ```
 
 Or to use the latest version, specifiy the github repository as follows.
+(visit https://pypi.org/project/pycalib-simple/ to check the latest version in PyPI)
 
 ```:bash
 python3 -m pip install -U git+https://github.com/nbhr/pycalib.git
