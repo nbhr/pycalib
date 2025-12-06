@@ -72,7 +72,7 @@ Notice that the pip installation does not include examples in [`./ipynb/`](./ipy
    - A linear registration of pairwise poses into a single coordinate system
 6. [N-view bundle adjustment](./ipynb/ncam_ba.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/ncam_ba.ipynb)
    - A non-linear minization of reprojection errors
-   - Each camera can spesify the parameters to optimize and to share with each other
+   - Each camera can specify the parameters to optimize and to share with each other
 7. [N-view time sync](./ipynb/qrtimecode.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/qrtimecode.ipynb)
    - GoPro compatible QR time sync pattern generator, detector, and offset estimator
 8. [Homography](./ipynb/homography.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/homography.ipynb)
@@ -84,7 +84,7 @@ Notice that the pip installation does not include examples in [`./ipynb/`](./ipy
 
 1. [Mirror-based extrinsic camera calibration](./ipynb/mirror.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/mirror.ipynb)
    - Extrinsic calibration of a camera w.r.t. a reference object not directly visible from the camera.
-   - This is a general example and does not include a "2D point detection from mirrored images" step.
+   - This is an implementation of `Takahashi, Nobuhara and Matsuyama "A New Mirror-based Camera Pose Estimation Using an Orthogonality Constraint," CVPR 2012`.
 2. [Display-camera calibration with mirrors](./ipynb/mirror_charuco.ipynb) [![Open In Colab][def]](https://colab.research.google.com/github/nbhr/pycalib/blob/master/ipynb/mirror_charuco.ipynb)
    - How to calibrate a webcam w.r.t. a display using a ChAruCo pattern.
 
