@@ -267,7 +267,10 @@ class StereoPair:
                 3D points in WCS. The size is Nx3.
         """
         # given corresponding points in the rectified images, returns the 3D points in WCS
-        return triangulate_Npts(np.array([p1_rectified_Nx2, p2_rectified_Nx2]), self.Pr)
+        #return triangulate_Npts(np.array([p1_rectified_Nx2, p2_rectified_Nx2]), self.Pr)
+        X = cv2.triangulatePoints(self.P1r, self.P2r, p1_rectified_Nx2.T, p2_rectified_Nx2.T)
+        X = X / X[3,:]
+        return X[:3,:].T
 
     def triangulate_dmap(self, disparity_c1_minus_c2):
         """
