@@ -5,7 +5,7 @@ from .plot import plotCamera, axisEqual3D
 from .calib import triangulate_Npts
 
 class StereoPair:
-    def __init__(self, K1, d1, R1_w2c, t1_w2c, K2, d2, R2_w2c, t2_w2c, imgsz1, imgsz2, scale=2, alpha=-1):
+    def __init__(self, K1, d1, imgsz1, R1_w2c, t1_w2c, K2, d2, R2_w2c, t2_w2c, imgsz2, scale=2, alpha=-1):
         self.K1 = K1
         self.d1 = d1
         self.R1_w2c = R1_w2c
