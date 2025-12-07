@@ -5,7 +5,7 @@ from .plot import plotCamera, axisEqual3D
 from .calib import triangulate_Npts
 
 class StereoPair:
-    def __init__(self, K1, d1, R1_w2c, t1_w2c, K2, d2, R2_w2c, t2_w2c, size):
+    def __init__(self, K1, d1, R1_w2c, t1_w2c, K2, d2, R2_w2c, t2_w2c, imgsz1, imgsz2, scale=2, alpha=-1):
         self.K1 = K1
         self.d1 = d1
         self.R1_w2c = R1_w2c
@@ -14,7 +14,10 @@ class StereoPair:
         self.d2 = d2
         self.R2_w2c = R2_w2c
         self.t2_w2c = t2_w2c.reshape((3,1))
-        self.size = size
+        self.imgsz1 = imgsz1
+        self.imgsz2 = imgsz2
+        self.size = (max(imgsz1[0], imgsz2[0]), max(imgsz1[1], imgsz2[1]))
+        self.scale = scale
         self.P1 = self.K1 @ np.hstack([self.R1_w2c, self.t1_w2c])
         self.P2 = self.K2 @ np.hstack([self.R2_w2c, self.t2_w2c])
         self.P = np.array([self.P1, self.P2])
@@ -25,7 +28,16 @@ class StereoPair:
         self.t12 = t2_w2c - self.R12 @ t1_w2c
 
         # R1, R2, P1, P2, Q, validPixROI1, validPixROI2
-        ret = cv2.stereoRectify(K1, d1, K2, d2, size, self.R12, self.t12, flags=0, alpha=-1)
+        ret = cv2.stereoRectify(K1, d1, K2, d2, self.size, self.R12, self.t12, flags=0, alpha=alpha)
+        if scale != 1:
+            ret = list(ret)
+            ret[2][0:2, 0:3] = scale * ret[2][0:2, 0:3] # P1
+            ret[3][0:2, 0:3] = scale * ret[3][0:2, 0:3] # P2
+            ret[4][:,3] = scale * ret[4][:,3] # Q
+            ret[5] = tuple(scale * x for x in ret[5]) # validPixROI1
+            ret[6] = tuple(scale * x for x in ret[6]) # validPixROI2
+            self.size = (self.size[0]*scale, self.size[1]*scale)
+
         self.rectified_R1 = ret[0]
         self.rectified_R2 = ret[1]
         self.rectified_P1 = ret[2]
@@ -54,14 +66,14 @@ class StereoPair:
         self.Pr = np.array([self.P1r, self.P2r])
         assert self.Pr.shape == (2, 3, 4)
 
-        self.map1_x, self.map1_y = cv2.initUndistortRectifyMap(K1, None, self.rectified_R1, self.rectified_P1, size, cv2.CV_32FC1)
-        self.map2_x, self.map2_y = cv2.initUndistortRectifyMap(K2, None, self.rectified_R2, self.rectified_P2, size, cv2.CV_32FC1)
+        self.map1_x, self.map1_y = cv2.initUndistortRectifyMap(K1, None, self.rectified_R1, self.rectified_K1, self.size, cv2.CV_32FC1)
+        self.map2_x, self.map2_y = cv2.initUndistortRectifyMap(K2, None, self.rectified_R2, self.rectified_K2, self.size, cv2.CV_32FC1)
 
-    def rectify_img_1(self, img1):
-        return cv2.remap(img1, self.map1_x, self.map1_y, cv2.INTER_NEAREST)
+    def rectify_img_1(self, img1, flag=cv2.INTER_NEAREST):
+        return cv2.remap(img1, self.map1_x, self.map1_y, flag)
 
-    def rectify_img_2(self, img2):
-        return cv2.remap(img2, self.map2_x, self.map2_y, cv2.INTER_NEAREST)
+    def rectify_img_2(self, img2, flag=cv2.INTER_NEAREST):
+        return cv2.remap(img2, self.map2_x, self.map2_y, flag)
 
     def rectify_pts3d_1(self, pts3d_Nx3):
         return (self.rectified_R1 @ pts3d_Nx3.T).T
