@@ -4,24 +4,6 @@ import pycalib
 from pycalib.util import transpose_to_col
 from skimage.transform import SimilarityTransform, EuclideanTransform
 
-def calc_homography(n_w, d_w, K1, R1_w2c, t1_w2c, K2, R2_w2c, t2_w2c):
-    R1 = R1_w2c
-    R2 = R2_w2c
-    t1 = t1_w2c.reshape((3,1))
-    t2 = t2_w2c.reshape((3,1))
-    n = n_w.reshape((3,1))
-    d = d_w
-
-    R12 = R2 @ R1.T
-    t12 = t2 - R12 @ t1
-    n1 = (n.T @ R1.T).T
-    d1 = d - n.T @ R1.T @ t1
-
-    H = K2 @ (R12 - (t12 @ n1.T / d1)) @ np.linalg.inv(K1)
-    H = H / H[2,2]
-
-    return H
-
 def signed_epipolar_distance(x1h_Nx3, x2h_Nx3, F):
     assert x1h_Nx3.shape[1] == 3
     assert x2h_Nx3.shape[1] == 3

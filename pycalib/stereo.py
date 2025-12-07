@@ -85,7 +85,7 @@ class StereoPair:
         self.map1_x, self.map1_y = cv2.initUndistortRectifyMap(K1, None, self.rectified_R1, self.rectified_K1, self.rectified_imgsz, cv2.CV_32FC1)
         self.map2_x, self.map2_y = cv2.initUndistortRectifyMap(K2, None, self.rectified_R2, self.rectified_K2, self.rectified_imgsz, cv2.CV_32FC1)
 
-    def rectify_img_1(self, img1, flag=cv2.INTER_NEAREST):
+    def rectify_img_1(self, img1, interpolation=cv2.INTER_NEAREST):
         """
         Rectify an image in the unrecified first camera to the recified first camera
 
@@ -98,9 +98,9 @@ class StereoPair:
                 Image in the recified first camera.
                 The size is self.rectified_imgsz.
         """
-        return cv2.remap(img1, self.map1_x, self.map1_y, flag)
+        return cv2.remap(img1, self.map1_x, self.map1_y, interpolation)
 
-    def rectify_img_2(self, img2, flag=cv2.INTER_NEAREST):
+    def rectify_img_2(self, img2, interpolation=cv2.INTER_NEAREST):
         """
         Rectify an image in the unrecified second camera to the recified second camera
 
@@ -113,7 +113,7 @@ class StereoPair:
                 Image in the recified second camera.
                 The size is self.rectified_imgsz.
         """
-        return cv2.remap(img2, self.map2_x, self.map2_y, flag)
+        return cv2.remap(img2, self.map2_x, self.map2_y, interpolation)
 
     def rectify_pts3d_1(self, pts3d_Nx3):
         """

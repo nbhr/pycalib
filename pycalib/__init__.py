@@ -4,6 +4,7 @@ __all__ = [
     "calib",
     "circle",
     "diamond",
+    "homography",
     "mirror",
     "plot",
     "robust",
@@ -14,13 +15,14 @@ __all__ = [
     "util",
     ]
 
-__version__ = '2025.12.5.1'
+__version__ = '2025.12.7.1'
 
 from .ba import *
 from .bal import *
 from .calib import *
 from .circle import *
 from .diamond import *
+from .homography import *
 from .mirror import tnm, tnm_ba, householder
 from .plot import *
 from .robust import *
