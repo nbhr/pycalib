@@ -32,7 +32,7 @@ class StereoPair:
         self.t2_w2c = t2_w2c.reshape((3,1))
         self.imgsz1 = imgsz1
         self.imgsz2 = imgsz2
-        self.size = (max(imgsz1[0], imgsz2[0]), max(imgsz1[1], imgsz2[1]))
+        self.rectified_imgsz = (max(imgsz1[0], imgsz2[0]), max(imgsz1[1], imgsz2[1]))
         self.scale = scale
         self.P1 = self.K1 @ np.hstack([self.R1_w2c, self.t1_w2c])
         self.P2 = self.K2 @ np.hstack([self.R2_w2c, self.t2_w2c])
@@ -44,7 +44,7 @@ class StereoPair:
         self.t12 = t2_w2c - self.R12 @ t1_w2c
 
         # R1, R2, P1, P2, Q, validPixROI1, validPixROI2
-        ret = cv2.stereoRectify(K1, d1, K2, d2, self.size, self.R12, self.t12, flags=0, alpha=alpha)
+        ret = cv2.stereoRectify(K1, d1, K2, d2, self.rectified_imgsz, self.R12, self.t12, flags=0, alpha=alpha)
         if scale != 1:
             ret = list(ret)
             ret[2][0:2, 0:3] = scale * ret[2][0:2, 0:3] # P1
@@ -52,7 +52,7 @@ class StereoPair:
             ret[4][:,3] = scale * ret[4][:,3] # Q
             ret[5] = tuple(scale * x for x in ret[5]) # validPixROI1
             ret[6] = tuple(scale * x for x in ret[6]) # validPixROI2
-            self.size = (self.size[0]*scale, self.size[1]*scale)
+            self.rectified_imgsz = (self.rectified_imgsz[0]*scale, self.rectified_imgsz[1]*scale)
 
         self.rectified_R1 = ret[0]
         self.rectified_R2 = ret[1]
@@ -82,58 +82,212 @@ class StereoPair:
         self.Pr = np.array([self.P1r, self.P2r])
         assert self.Pr.shape == (2, 3, 4)
 
-        self.map1_x, self.map1_y = cv2.initUndistortRectifyMap(K1, None, self.rectified_R1, self.rectified_K1, self.size, cv2.CV_32FC1)
-        self.map2_x, self.map2_y = cv2.initUndistortRectifyMap(K2, None, self.rectified_R2, self.rectified_K2, self.size, cv2.CV_32FC1)
+        self.map1_x, self.map1_y = cv2.initUndistortRectifyMap(K1, None, self.rectified_R1, self.rectified_K1, self.rectified_imgsz, cv2.CV_32FC1)
+        self.map2_x, self.map2_y = cv2.initUndistortRectifyMap(K2, None, self.rectified_R2, self.rectified_K2, self.rectified_imgsz, cv2.CV_32FC1)
 
     def rectify_img_1(self, img1, flag=cv2.INTER_NEAREST):
+        """
+        Rectify an image in the unrecified first camera to the recified first camera
+
+        Args:
+            img1: np.ndarray
+                Image in the unrectified first camera.
+                The size must be `self.imgsz1`.
+        Returns:
+            np.ndarray
+                Image in the recified first camera.
+                The size is self.rectified_imgsz.
+        """
         return cv2.remap(img1, self.map1_x, self.map1_y, flag)
 
     def rectify_img_2(self, img2, flag=cv2.INTER_NEAREST):
+        """
+        Rectify an image in the unrecified second camera to the recified second camera
+
+        Args:
+            img1: np.ndarray
+                Image in the unrectified second camera.
+                The size must be `self.imgsz2`.
+        Returns:
+            np.ndarray
+                Image in the recified second camera.
+                The size is self.rectified_imgsz.
+        """
         return cv2.remap(img2, self.map2_x, self.map2_y, flag)
 
     def rectify_pts3d_1(self, pts3d_Nx3):
+        """
+        Rectify 3D points in the unrecified first camera to the recified first camera
+
+        Args:
+            pts3d_Nx3: np.ndarray
+                3D points in the unrectified first camera.
+                The size must be Nx3.
+        Returns:
+            np.ndarray
+                3D points in the recified first camera.
+                The size is Nx3.
+        """
         return (self.rectified_R1 @ pts3d_Nx3.T).T
 
     def rectify_pts3d_2(self, pts3d_Nx3):
+        """
+        Rectify 3D points in the unrecified second camera to the recified second camera
+
+        Args:
+            pts3d_Nx3: np.ndarray
+                3D points in the unrectified second camera.
+                The size must be Nx3.
+        Returns:
+            np.ndarray
+                3D points in the recified second camera.
+                The size is Nx3.
+        """
         return (self.rectified_R2 @ pts3d_Nx3.T).T
 
     def unrectify_pts3d_1(self, pts3d_Nx3):
+        """
+        Unrectify 3D points in the recified first camera to the unrecified first camera
+
+        Args:
+            pts3d_Nx3: np.ndarray
+                3D points in the rectified first camera.
+                The size must be Nx3.
+        Returns:
+            np.ndarray
+                3D points in the unrecified first camera.
+                The size is Nx3.
+        """
         return (self.rectified_R1.T @ pts3d_Nx3.T).T
 
     def unrectify_pts3d_2(self, pts3d_Nx3):
+        """
+        Unrectify 3D points in the recified second camera to the unrecified second camera
+
+        Args:
+            pts3d_Nx3: np.ndarray
+                3D points in the rectified second camera.
+                The size must be Nx3.
+        Returns:
+            np.ndarray
+                3D points in the unrecified second camera.
+                The size is Nx3.
+        """
         return (self.rectified_R2.T @ pts3d_Nx3.T).T
 
     def rectify_pts2d_1(self, pts2d_Nx2):
+        """
+        Rectify 2D points in the unrecified first camera to the recified first camera
+
+        Args:
+            pts2d_Nx2: np.ndarray
+                2D points in the unrectified first camera.
+                The size must be Nx2.
+        Returns:
+            np.ndarray
+                2D points in the recified first camera.
+                The size is Nx2.
+        """
+
         p = cv2.convertPointsToHomogeneous(pts2d_Nx2).reshape((-1,3))
         c = (self.rectified_K1 @ self.rectified_R1 @ np.linalg.inv(self.K1) @ p.T).T
         c = c / c[:,2,None]
         return c[:,:2]
 
     def rectify_pts2d_2(self, pts2d_Nx2):
+        """
+        Rectify 2D points in the unrecified second camera to the recified second camera
+
+        Args:
+            pts2d_Nx2: np.ndarray
+                2D points in the unrectified second camera.
+                The size must be Nx2.
+        Returns:
+            np.ndarray
+                2D points in the recified second camera.
+                The size is Nx2.
+        """
+
         p = cv2.convertPointsToHomogeneous(pts2d_Nx2).reshape((-1,3))
         c = (self.rectified_K2 @ self.rectified_R2 @ np.linalg.inv(self.K2) @ p.T).T
         c = c / c[:,2,None]
         return c[:,:2]
 
     def unrectify_pts2d_1(self, pts2d_Nx2):
+        """
+        Unrectify 2D points in the recified first camera to the unrecified first camera
+
+        Args:
+            pts2d_Nx2: np.ndarray
+                2D points in the rectified first camera.
+                The size must be Nx2.
+        Returns:
+            np.ndarray
+                2D points in the unrecified first camera.
+                The size is Nx2.
+        """
+
         p = cv2.convertPointsToHomogeneous(pts2d_Nx2).reshape((-1,3))
         c = (self.K1 @ self.rectified_R1.T @ np.linalg.inv(self.rectified_K1) @ p.T).T
         c = c / c[:,2,None]
         return c[:,:2]
 
     def unrectify_pts2d_2(self, pts2d_Nx2):
+        """
+        Unrectify 2D points in the recified second camera to the unrecified second camera
+
+        Args:
+            pts2d_Nx2: np.ndarray
+                2D points in the rectified second camera.
+                The size must be Nx2.
+        Returns:
+            np.ndarray
+                2D points in the unrecified second camera.
+                The size is Nx2.
+        """
+
         p = cv2.convertPointsToHomogeneous(pts2d_Nx2).reshape((-1,3))
         c = (self.K2 @ self.rectified_R2.T @ np.linalg.inv(self.rectified_K2) @ p.T).T
         c = c / c[:,2,None]
         return c[:,:2]
 
     def triangulate_pts(self, p1_rectified_Nx2, p2_rectified_Nx2):
+        """
+        Triangulate 3D points in WCS from corresponding points in the rectified images
+
+        Args:
+            p1_rectified_Nx2: np.ndarray
+                2D points in the rectified first camera.
+                The size must be Nx2.
+            p2_rectified_Nx2: np.ndarray
+                2D points in the rectified second camera.
+                The size must be Nx2.
+        Returns:
+            np.ndarray
+                3D points in WCS. The size is Nx3.
+        """
         # given corresponding points in the rectified images, returns the 3D points in WCS
         return triangulate_Npts(np.array([p1_rectified_Nx2, p2_rectified_Nx2]), self.Pr)
 
     def triangulate_dmap(self, disparity_c1_minus_c2):
+        """
+        Triangulate 3D points in WCS from a disparity map in the rectified first camera
+
+        Args:
+            disparity_c1_minus_c2: np.ndarray
+                Signed disparity map in the first camera.
+                The disparity should be given as c1-c2, for each corresponding pixel <c1, c2>.
+                Pixels without disparity should have np.nan.
+                The size must be `self.rectified_imgsz`.
+
+        Returns:
+            np.ndarray
+                3D points in WCS. The size is Nx3.
+        """
+
         # triangulate in rectified cam1
-        X1r = cv2.reprojectImageTo3D(disparity_c1_minus_c2, self.rectified_Q, handleMissingValues=True)
+        dmap = disparity_c1_minus_c2.astype(np.float32)
+        X1r = cv2.reprojectImageTo3D(dmap, self.rectified_Q, handleMissingValues=True)
         # reprojectImageTo3D maps points with zero disparity to 10000
         mask = (X1r[:,:,2] != 10000)
         # unrectify
