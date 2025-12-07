@@ -5,7 +5,23 @@ from .plot import plotCamera, axisEqual3D
 from .calib import triangulate_Npts
 
 class StereoPair:
-    def __init__(self, K1, d1, imgsz1, R1_w2c, t1_w2c, K2, d2, R2_w2c, t2_w2c, imgsz2, scale=2, alpha=-1):
+    def __init__(self, K1, d1, imgsz1, R1_w2c, t1_w2c, K2, d2, imgsz2, R2_w2c, t2_w2c, scale=2, alpha=-1):
+        """
+        Args:
+            K1: 3x3 intrinsic matrix of the first (left) camera
+            d1: distortion parameters (4, 5, or 8 elements) of the first (left) camera
+            imgsz1: image size (w,h) of the first (left) camera
+            R1_w2c: 3x3 rotation matrix of the first (left) camera
+            t1_w2c: 3x1 translation vector of the first (left) camera
+            K2: 3x3 intrinsic matrix of the second (right) camera
+            d2: distortion parameters (4, 5, or 8 elements) of the second (right) camera
+            imgsz2: image size (w,h) of the second (right) camera
+            R2_w2c: 3x3 rotation matrix of the second (right) camera
+            t2_w2c: 3x1 translation vector of the second (right) camera
+            scale: scaling factor to magnify the rectified images
+            alpha: alpha given to cv2.stereoRectify()
+        """
+
         self.K1 = K1
         self.d1 = d1
         self.R1_w2c = R1_w2c
