@@ -5,6 +5,7 @@ import pycalib
 import multiprocessing
 import itertools
 from tqdm.auto import tqdm
+from scipy.optimize import least_squares
 
 def undistort_inplace(df, cid, camera_matrix, dist_coeffs, *, key_cid='camera', key_x='x', key_y='y'):
     """
@@ -125,16 +126,32 @@ def triangulate_wrapper(x):
     df, P, c1, c2, reproj_th, primary_key, key_cid, key_x, key_y = x
     return triangulate(df, P, c1, c2, reproj_th=reproj_th, primary_key=primary_key, key_cid=key_cid, key_x=key_x, key_y=key_y)
 
+def reprojection_error_1pt_nview(pt3d, pt2d, P, weight=None):
+    pt3dh = np.append(pt3d.flatten(), 1.0)
+    p = np.einsum('ijk,k->ij', P, pt3dh)
+    p = p / p[:,2:3]
+    e = p[:,:2] - pt2d
 
-def triangulate_inliers(df_undistorted, X, P, *, primary_key=['frame', 'label'], key_cid='camera', key_x='x', key_y='y'):
+    if weight is not None:
+        e = e * weight[:,None]
+
+    return e.flatten()
+
+def triangulate_inliers(df_undistorted, X, P, *, primary_key=['frame', 'label'], key_cid='camera', key_x='x', key_y='y', bundle_adjustment=False, key_w=None):
     inliers = X[primary_key + ['inliers']]
     df = pd.merge(df_undistorted, inliers, how='inner', on=primary_key)
 
     for c in sorted(df[key_cid].unique()):
         idx = np.array([(c in i and c == j) for i,j in zip(df['inliers'].to_list(), df[key_cid].to_list())])
         dfc = df.loc[idx]
-        df = pd.merge(df, dfc[primary_key+[key_x, key_y]], how='left', on=primary_key, suffixes=['', f'_{c}'])
-    df = df.drop(columns=[key_x, key_y, key_cid])
+        if key_w is None:
+            df = pd.merge(df, dfc[primary_key+[key_x, key_y]], how='left', on=primary_key, suffixes=['', f'_{c}'])
+        else:
+            df = pd.merge(df, dfc[primary_key+[key_x, key_y, key_w]], how='left', on=primary_key, suffixes=['', f'_{c}'])
+    if key_w is None:
+        df = df.drop(columns=[key_x, key_y, key_cid])
+    else:
+        df = df.drop(columns=[key_x, key_y, key_cid, key_w])
     df = df.drop_duplicates(primary_key)
     df = df.sort_values(primary_key)
 
@@ -148,14 +165,30 @@ def triangulate_inliers(df_undistorted, X, P, *, primary_key=['frame', 'label'],
             pt2d.append(p.to_numpy())
         pt2d = np.array(pt2d) # Nc x Np x 2
         pt3d = pycalib.calib.triangulate_Npts(pt2d, Pg)
+        if bundle_adjustment:
+            if key_w is None:
+                weights = np.ones(len(inliers))
+            else:
+                weights = []
+                for c in inliers:
+                    w = d[f'{key_w}_{c}']
+                    weights.append(w.to_numpy())
+                weights = np.array(weights).flatten() # Nc
+#            weights = None
+#            weights = np.ones(len(inliers))
+            for i in range(pt2d.shape[1]):
+                p2 = pt2d[:,i,:]
+                p3 = pt3d[i].flatten()
+                assert p3.shape == (3,), p3
+                res = least_squares(reprojection_error_1pt_nview, p3, verbose=False, ftol=1e-4, method='trf', loss='linear', args=(p2, Pg, weights))
+                pt3d[i] = res['x'].flatten()
         d[['X', 'Y', 'Z']] = pt3d
         df_all.append(d)
     df = pd.concat(df_all).sort_values(primary_key)
     df = pd.merge(X, df[primary_key+['X','Y','Z']], how='inner', on=primary_key, suffixes=['', '_in'])
     return df
 
-
-def triangulate_consensus(df, P, *, nproc=0, reproj_th=10, re_triangulate=True, show_pbar=True, primary_key=['frame', 'label'], key_cid='camera', key_x='x', key_y='y', distorted=False, camera_matrix=None, dist_coeffs=None):
+def triangulate_consensus(df, P, *, nproc=0, reproj_th=10, re_triangulate=True, bundle_adjustment=False, show_pbar=True, primary_key=['frame', 'label'], key_cid='camera', key_x='x', key_y='y', key_w=None, distorted=False, camera_matrix=None, dist_coeffs=None):
     """
     Robust n-view triangulation
 
@@ -171,6 +204,8 @@ def triangulate_consensus(df, P, *, nproc=0, reproj_th=10, re_triangulate=True, 
         reprojection error threshold
     re_triangulate: Bool
         do final triangulation using identified inliers
+    bundle_adjustment: Bool
+        do bundle adjustment to minimize reprojection errors (implies re_triangulate)
     show_pbar: Bool
         show progress bar
     primary_key: list of str
@@ -181,6 +216,8 @@ def triangulate_consensus(df, P, *, nproc=0, reproj_th=10, re_triangulate=True, 
         column name of x
     key_y: str
         column name of y
+    key_w: str
+        colum name of weighting factor of each 2D point for scaling its reprojection error
     distorted: Bool
         do undistortion before triangulation (requires camera_matrix and dist_coeffs)
     camera_matrix: numpy.array
@@ -196,14 +233,17 @@ def triangulate_consensus(df, P, *, nproc=0, reproj_th=10, re_triangulate=True, 
         undistorted 2D points with columns [primary_key, key_cid, key_x, key_y]
     """
 
-    df = df[primary_key+[key_cid, key_x, key_y]].copy()
-
     cids = df[key_cid].unique()
     if distorted:
         df = df.copy()
         assert camera_matrix is not None and dist_coeffs is not None, 'camera_matrix and dist_coeffs must be provided'
         for c in cids:
             undistort_inplace(df, c, camera_matrix[c], dist_coeffs[c])
+
+    if key_w is not None:
+        dfw = df[primary_key+[key_cid, key_x, key_y, key_w]].copy()
+
+    df = df[primary_key+[key_cid, key_x, key_y]].copy()
 
     # two-view triangulation in parallel
     p = multiprocessing.Pool(multiprocessing.cpu_count() if nproc <= 0 else nproc)
@@ -218,8 +258,8 @@ def triangulate_consensus(df, P, *, nproc=0, reproj_th=10, re_triangulate=True, 
     X = merge(dfs, primary_key=primary_key)
 
     # re-triangulation using all inliers
-    if re_triangulate:
-        X = triangulate_inliers(df, X, P, primary_key=primary_key, key_cid=key_cid, key_x=key_x, key_y=key_y)
+    if re_triangulate or bundle_adjustment:
+        X = triangulate_inliers(df if key_w is None else dfw, X, P, primary_key=primary_key, key_cid=key_cid, key_x=key_x, key_y=key_y, bundle_adjustment=bundle_adjustment, key_w=key_w)
 
     return X, df
 
