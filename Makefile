@@ -48,7 +48,7 @@ bump:
 	@grep -n '__version__' $(INIT)
 
 check-clean:
-	test -z "`git status --porcelain | grep -vE '^\?\?'`" || \
+	@test -z "`git status --porcelain | grep -vE '^\?\?'`" || \
 		{ echo "working tree is dirty"; exit 1; }
 
 release: check-clean bump
