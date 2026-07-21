@@ -11,11 +11,12 @@ def local_chdir(func):
     def _inner(*args, **kwargs):
         # get the current dir before entering the func
         dir_original = os.getcwd()
-        # run func
-        ret = func(*args, **kwargs)
-        # back to the original dir
-        os.chdir(dir_original)
-        return ret
+        try:
+            # run func
+            return func(*args, **kwargs)
+        finally:
+            # back to the original dir, even if func raised
+            os.chdir(dir_original)
     return _inner
 
 class TestPyCalib(unittest.TestCase):
@@ -36,11 +37,11 @@ class TestPyCalib(unittest.TestCase):
     def test_absolute_orientation(self):
         self.run_ipynb('absolute_orientation.ipynb')
 
-    def test_absolute_orientation(self):
-        self.run_ipynb('aruco_movie.ipynb')
-
     def test_calib2d3d(self):
         self.run_ipynb('calib2d3d.ipynb')
+
+    def test_cameramodel(self):
+        self.run_ipynb('cameramodel.ipynb')
 
     def test_charuco_diamond(self):
         self.run_ipynb('charuco_diamond.ipynb')
@@ -62,6 +63,9 @@ class TestPyCalib(unittest.TestCase):
 
     def test_excalib_chess(self):
         self.run_ipynb('excalib_chess.ipynb')
+
+    def test_homography(self):
+        self.run_ipynb('homography.ipynb')
 
     def test_incalib_charuco(self):
         self.run_ipynb('incalib_charuco.ipynb')
@@ -101,3 +105,9 @@ class TestPyCalib(unittest.TestCase):
 
     def test_aruco_movie(self):
         self.run_ipynb('aruco_movie.ipynb')
+
+    def test_rectification(self):
+        self.run_ipynb('rectification.ipynb')
+
+    def test_trifocal_tensor(self):
+        self.run_ipynb('trifocal_tensor.ipynb')

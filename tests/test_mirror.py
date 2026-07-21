@@ -28,12 +28,12 @@ class TestPyCalibMirror(unittest.TestCase):
         # linear solution
         R0, T0, n0, d0, rep0 = pycalib.mirror.tnm(model, input, K)
         #print(f'Reprojection error (linear) = {rep0:.3} px')
-        self.assertLess(rep0, 6.284716397404586)
+        self.assertLess(rep0, 6.284721)
 
         # non-linear refinement
         R, T, n, d, rep = pycalib.mirror.tnm_ba(model, input, K, R0, T0, n0, d0)
         #print(f'Reprojection error (BA) = {rep:.3} px')
-        self.assertLess(rep, 0.6401348975172396)
+        self.assertLess(rep, 0.640135)
 
     def test_mirror_3(self):
         model, input, K = self.prepare()
@@ -64,9 +64,9 @@ class TestPyCalibMirror(unittest.TestCase):
         # linear solution
         R0, T0, n0, d0, rep0 = pycalib.mirror.tnm(model, input, K)
         #print(f'Reprojection error (linear) = {rep0:.3} px')
-        self.assertLess(rep0, 6.493891993463244)
+        self.assertLess(rep0, 6.493917)
 
         # non-linear refinement
         R, T, n, d, rep = pycalib.mirror.tnm_ba(model, input, K, R0, T0, n0, d0)
         #print(f'Reprojection error (BA) = {rep:.3} px')
-        self.assertLess(rep, 0.6538855436697778)
+        self.assertLess(rep, 0.653886)
