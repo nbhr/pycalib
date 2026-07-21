@@ -58,10 +58,9 @@ CLASSIFIERS = [
     'Framework :: Jupyter',
 ]
 
-with open('README.md', 'r', encoding='utf-8') as fp:
-    readme = fp.read()
-with open('CONTACT.txt', 'r', encoding='utf-8') as fp:
-    contacts = fp.read()
+_here = pathlib.Path(__file__).parent
+readme = (_here / 'README.md').read_text(encoding='utf-8')
+contacts = (_here / 'CONTACT.txt').read_text(encoding='utf-8')
 long_description = readme + '\n\n' + contacts
 
 setup(name=NAME,
