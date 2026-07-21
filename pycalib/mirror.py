@@ -23,7 +23,7 @@ def sub_tmn_orth(Cp_candidates: np.ndarray) -> np.ndarray:
         for cp1, cp2 in itertools.combinations(cp, 2):
             Q = cp1 - cp2
             M = Q.T @ Q
-            D, _ = np.linalg.eig(M)
+            D, _ = np.linalg.eigh(M)
             rho += D.min() / np.sum(D)
         if rho < best_rho:
             best_rho = rho
@@ -77,7 +77,7 @@ def sub_tnm_rt(Xp: np.ndarray, Cp: np.ndarray):
             # compute the M matrix
             M = Q.T @ Q
             # compute the eigen vector of M
-            D, V = np.linalg.eig(M)
+            D, V = np.linalg.eigh(M)
             # compute the m vector as a eigen vector for smallest eigen value.
             m = V[:, D.argmin()]
 
@@ -89,7 +89,7 @@ def sub_tnm_rt(Xp: np.ndarray, Cp: np.ndarray):
         # compute the S matrix
         S = np.array(m) # M-1 x 3
         # compute the eigen value of S
-        D, V = np.linalg.eig(S.T @ S)
+        D, V = np.linalg.eigh(S.T @ S)
         # compute the normal vector as a eigen vector for smallest eigen value.
         n = V[:, D.argmin()]
         # solve the sign ambiguity

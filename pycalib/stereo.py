@@ -41,7 +41,7 @@ class StereoPair:
 
         # make cam1 == wcs
         self.R12 = R2_w2c @ R1_w2c.T
-        self.t12 = t2_w2c - self.R12 @ t1_w2c
+        self.t12 = self.t2_w2c - self.R12 @ self.t1_w2c
 
         # R1, R2, P1, P2, Q, validPixROI1, validPixROI2
         ret = cv2.stereoRectify(K1, d1, K2, d2, self.rectified_imgsz, self.R12, self.t12, flags=0, alpha=alpha)

@@ -25,7 +25,11 @@ def undistort_points(pt2d, cameraMatrix, distCoeffs, criteria=(cv2.TERM_CRITERIA
     #return cv2.undistortPoints(pt2d, cameraMatrix, distCoeffs, P=cameraMatrix)
     # https://stackoverflow.com/questions/62170402/opencv-undistort-for-images-and-undistortpoints-are-inconsistent
     # https://github.com/opencv/opencv/issues/20736
-    return cv2.undistortPointsIter(pt2d, cameraMatrix, distCoeffs, np.eye(3), cameraMatrix, criteria)
+    # cv2.undistortPointsIter was removed in OpenCV 5.0; cv2.undistortPoints() gained
+    # the same `criteria` parameter, so fall back to it when the former is unavailable.
+    if hasattr(cv2, 'undistortPointsIter'):
+        return cv2.undistortPointsIter(pt2d, cameraMatrix, distCoeffs, np.eye(3), cameraMatrix, criteria)
+    return cv2.undistortPoints(pt2d, cameraMatrix, distCoeffs, R=np.eye(3), P=cameraMatrix, criteria=criteria)
 
 
 def distort_points(pt2d, cameraMatrix, distCoeffs):
@@ -512,13 +516,13 @@ class Camera:
         if f is not None:
             assert u0 is not None
             assert v0 is not None
-            __A = np.array([[f, 0, u0], [0, f, v0], [0, 0, 1]])
+            self.__A = np.array([[f, 0, u0], [0, f, v0], [0, 0, 1]])
         if A is not None:
-            __A = A
+            self.__A = A
 
     def set_d(self, *, dist_coeffs=None):
         if dist_coeffs is not None:
-            __d = dist_coeffs
+            self.__d = dist_coeffs
 
     def undistort_points(self, pt2d):
         return cv2.undistortPoints(pt2d, cameraMatrix=self.__A, distCoeffs=self.__d, P=self.__A)

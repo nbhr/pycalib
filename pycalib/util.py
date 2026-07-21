@@ -101,9 +101,9 @@ def open_z(filename, mode):
 
 def is_shape(a, sz):
     sz0 = a.shape
-    if len(sz0) != sz:
+    if len(sz0) != len(sz):
         return False
-    for i in len(sz0):
+    for i in range(len(sz0)):
         if sz[i] != -1 and sz[i] != sz0[i]:
             return False
     return True
