@@ -47,10 +47,6 @@ bump:
 	@rm -f $(INIT).bak
 	@grep -n '__version__' $(INIT)
 
-check-clean:
-	@test -z "`git status --porcelain | grep -vE '^\?\?'`" || \
-		{ echo "working tree is dirty"; exit 1; }
-
 release: check-clean bump
 	git add $(INIT)
 	git commit -m "Release $(VERSION)"
@@ -59,10 +55,14 @@ release: check-clean bump
 	git push origin v$(VERSION)
 	gh release create v$(VERSION) --title "$(VERSION)" --generate-notes
 
+check-clean:
+	@git diff --quiet HEAD -- || \
+		{ echo "tracked files are modified"; \
+		  git status --short --untracked-files=no; exit 1; }
+
 release-test: check-clean bump
 	git add $(INIT)
-	git commit -m "Test release $(VERSION)"
+	@git diff --cached --quiet || git commit -m "Test release $(VERSION)"
 	git tag -a v$(VERSION) -m "Test release $(VERSION)"
 	git push origin master v$(VERSION)
 	gh release create v$(VERSION) --prerelease --title "$(VERSION)" --generate-notes
-
