@@ -1,5 +1,5 @@
 .vscode
-output-*
+output*
 tmp-*
 *~
 problem-49-7776-pre.txt.bz2
