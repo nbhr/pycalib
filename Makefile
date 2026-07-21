@@ -1,5 +1,8 @@
 # vim: set noexpandtab:
 
+VERSION := $(shell d=`date +%Y.%m.%d`; n=`git tag -l "v$$d.*" | wc -l`; echo $$d.$$((n+1)))
+INIT    := pycalib/__init__.py
+
 all:
 	@echo "make unittest"
 	@echo "make clean"
@@ -35,4 +38,31 @@ upload-pypi:
 
 requirements:
 	pipreqs --use-local --force .
+
+version:
+	@echo $(VERSION)
+
+bump:
+	sed -i.bak -E "s/^__version__ *= *['\"].*['\"]/__version__ = '$(VERSION)'/" $(INIT)
+	@rm -f $(INIT).bak
+	@grep -n '__version__' $(INIT)
+
+check-clean:
+	@test -z "`git status --porcelain`" || \
+		{ echo "working tree is dirty"; exit 1; }
+
+release: check-clean bump
+	git add $(INIT)
+	git commit -m "Release $(VERSION)"
+	git tag -a v$(VERSION) -m "Release $(VERSION)"
+	git push origin master
+	git push origin v$(VERSION)
+	gh release create v$(VERSION) --title "$(VERSION)" --generate-notes
+
+release-test: check-clean bump
+	git add $(INIT)
+	git commit -m "Test release $(VERSION)"
+	git tag -a v$(VERSION) -m "Test release $(VERSION)"
+	git push origin master v$(VERSION)
+	gh release create v$(VERSION) --prerelease --title "$(VERSION)" --generate-notes
 

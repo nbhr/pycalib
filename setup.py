@@ -3,7 +3,10 @@
 # License: Apache Software License
 
 from setuptools import setup
-import pycalib
+
+import re, pathlib
+VERSION = re.search(r"__version__\s*=\s*['\"]([^'\"]+)",
+                    pathlib.Path('pycalib/__init__.py').read_text()).group(1)
 
 DESCRIPTION = "PyCalib: Simple Camera Calibration in Python for Beginners"
 NAME = 'pycalib-simple'
