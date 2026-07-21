@@ -94,35 +94,48 @@ def project(points, camera_params):
     return points_proj
 
 def x2c(x, c0, mask):
-    # base params
-    camera_params = c0.copy()
-    n_cameras = len(camera_params)
-    assert c0.shape == (n_cameras, 17)
+    """Reconstruct a full (N, D) parameter array from the optimization vector
+    `x` and a base array `c0`, according to `mask` (0 = fixed/taken from `c0`,
+    a unique positive int = free/independent, a positive int shared by
+    several entries = those entries are tied to a single free variable).
 
-    if mask.shape == (17,):
+    Used both for camera parameters (N=num of cameras, D=17) and 3D points
+    (N=num of points, D=3).
+    """
+    params = c0.copy()
+    n_rows, n_dof = c0.shape
+
+    if mask.shape == (n_dof,):
         # 1D == shared mask
         n_params = np.sum(mask)
-        n_params_total = n_cameras * n_params
-        camera_params[:, mask] = x[:n_params_total].reshape((n_cameras, n_params))
+        n_params_total = n_rows * n_params
+        params[:, mask] = x[:n_params_total].reshape((n_rows, n_params))
     else:
-        # 2D == camera-wise mask
-        assert mask.shape == (n_cameras, 17)
+        # 2D == row-wise mask
+        assert mask.shape == (n_rows, n_dof)
 
         if mask.dtype == bool:
             n_params_total = np.sum(mask != 0)
-            camera_params = camera_params.flatten()
-            camera_params[mask.flatten()] = x[:n_params_total]
-            camera_params = camera_params.reshape((n_cameras, 17))
+            params = params.flatten()
+            params[mask.flatten()] = x[:n_params_total]
+            params = params.reshape((n_rows, n_dof))
         else:
             assert mask.dtype == int
-            uval, uval_indices, uval_inverse, uval_counts = np.unique(mask, return_index=True, return_inverse=True, return_counts=True)
-            uval_inverse = uval_inverse.reshape(-1)
-            idx = uval_inverse.reshape(mask.shape)
-            camera_params[mask != 0] = x[uval_inverse[mask.flatten() != 0]-1]
-            n_params_total = np.sum(uval != 0)
+            # column (0-based) of each nonzero mask value among the sorted
+            # nonzero unique values. NOTE: do not derive this from a
+            # rank-among-ALL-unique-values minus one -- if `mask` happens to
+            # contain no 0 (fixed) entries at all, 0 is absent from the
+            # unique-value set, and "rank - 1" silently shifts every column
+            # by one (wrapping around to -1 for the smallest value).
+            uval = np.unique(mask)
+            nz_uval = uval[uval != 0]
+            col = np.searchsorted(nz_uval, mask)
+            valid = mask != 0
+            params[valid] = x[col[valid]]
+            n_params_total = len(nz_uval)
 
-    assert camera_params.shape == (n_cameras, 17)
-    return camera_params, n_params_total
+    assert params.shape == (n_rows, n_dof)
+    return params, n_params_total
 
 def c2x(c, mask):
     assert c.shape == mask.shape
@@ -136,56 +149,76 @@ def c2x(c, mask):
 
     return x
 
-def reprojection_error(params, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, inv_stdev, cam0):
+def reprojection_error(params, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, point_mask, weights, inv_stdev, cam0, points_3d0):
     """Compute residuals.
 
     `params` contains camera parameters and 3-D coordinates.
     """
     camera_params, n_params = x2c(params, cam0, mask)
-    points_3d = params[n_params:].reshape((n_points, 3))
+    points_3d, n_point_params = x2c(params[n_params:], points_3d0, point_mask)
     points_proj = project(points_3d[point_indices], camera_params[camera_indices])
     e = points_proj - points_2d
     if inv_stdev is not None:
         e = np.einsum('kij,kj->ki', inv_stdev, e)
     return (e * weights[:,None]).ravel()
 
-def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, mask):
+def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, mask, point_mask):
     # returns a m-by-n binary matrix
     # m: observations (num of 2d point x 2 (= u, v))
-    # n: parameters (camera params + num of 3d points x 3)
+    # n: parameters (free camera params + free 3d point coordinates)
 
     assert len(mask.shape) == 2
     assert mask.dtype == int
+    assert point_mask.shape == (n_points, 3)
+    assert point_mask.dtype == int
 
-    # find the mask boundary per camera
-    uval, uval_indices, uval_inverse, uval_counts = np.unique(mask, return_index=True, return_inverse=True, return_counts=True)
-    mask_idx = uval_inverse.reshape(mask.shape)
+    def nonzero_columns(m):
+        # sorted nonzero unique values of `m`, and (for every entry of `m`)
+        # its 0-based column position among those nonzero values. NOTE: the
+        # column position is only meaningful where the entry itself is != 0
+        # -- do not derive it from "rank among ALL unique values minus one",
+        # since if `m` has no 0 (fixed) entries at all, 0 is absent from the
+        # unique-value set and that would silently shift every column by one.
+        uval = np.unique(m)
+        nz_uval = uval[uval != 0]
+        return nz_uval, np.searchsorted(nz_uval, m)
 
-    n_params = np.sum(uval != 0)
+    # find the free column per camera parameter
+    cam_nz, cam_col = nonzero_columns(mask)
+    n_params = len(cam_nz)
+
+    # find the free column per 3D point coordinate
+    pt_nz, pt_col = nonzero_columns(point_mask)
+    n_point_params = len(pt_nz)
 
     m = camera_indices.size * 2
-    n = n_params + n_points * 3
+    n = n_params + n_point_params
     A = lil_matrix((m, n), dtype=int)
 
     # for each camera
     for i in range(len(mask)):
         idx = np.where(camera_indices == i)[0]
-        u = np.unique(mask_idx[i,:])
-        u = u[u != 0] - 1
+        u = np.unique(cam_col[i, mask[i, :] != 0])
 
         for j in u:
             A[2 * idx, j] = 1
             A[2 * idx+1, j] = 1
 
+    # for each 3D point coordinate (x, y, z), skipping fixed entries
     i = np.arange(camera_indices.size)
+    obs_valid = point_mask[point_indices, :] != 0
+    obs_col = pt_col[point_indices, :]
     for s in range(3):
-        A[2 * i, n_params + point_indices * 3 + s] = 1
-        A[2 * i + 1, n_params + point_indices * 3 + s] = 1
+        valid = obs_valid[:, s]
+        rows = i[valid]
+        cols = n_params + obs_col[valid, s]
+        A[2 * rows, cols] = 1
+        A[2 * rows + 1, cols] = 1
 
     #print(A.toarray())
     return A
 
-def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None, weights=None, loss='linear', cov=None):
+def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, points_2d, *, verbose=2, mask=None, point_mask=None, weights=None, loss='linear', cov=None):
     """
     Optimize camera poses and intrinsics non-linearly
 
@@ -203,6 +236,9 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
         N x 2 array of 2D points.  points_3d[point_indices[i]] is observed by camera_indices[i] at points_2d[i]
     mask: ndarray
         A bool array of length 17 or a Cx17 bool matrix to specify the camera parameters to optimize.
+    point_mask: ndarray
+        A bool array of length 3 or a Mx3 bool matrix to specify which 3D point coordinates to optimize
+        (same 0=fixed / unique=independent / shared=tied semantics as `mask`).  Defaults to all points free.
     weights:
         N array of weights to scale the error at each point.  Set 0 to ignore the point.
     verbose: int
@@ -227,7 +263,7 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     ToDo
     ----
     - add bounds support
-    - static 3D points
+    - [x] static 3D points
     - [x] shared camera intrinsic params == moving camera
     - [x] shared camera extrinsic params == zoom camera
     """
@@ -253,6 +289,20 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
     assert mask.shape == camera_params.shape
     assert np.min(mask) >= 0
 
+    # point_mask is 2D int>=0, same convention as mask
+    if point_mask is None:
+        point_mask = np.ones(points_3d.shape, dtype=bool)
+    elif point_mask.shape == (3,):
+        # 1D -> 2D
+        point_mask = np.tile(point_mask, (n_points, 1))
+    if point_mask.dtype == bool:
+        m = np.arange(len(point_mask.flatten())).reshape(point_mask.shape) + 1
+        m[point_mask == 0] = 0
+        point_mask = m
+    assert point_mask.dtype == int
+    assert point_mask.shape == points_3d.shape
+    assert np.min(point_mask) >= 0
+
     # weight is 1D
     if weights is None:
         weights = np.ones(len(point_indices))
@@ -273,18 +323,19 @@ def bundle_adjustment(camera_params, points_3d, camera_indices, point_indices, p
         inv_stdev = None
 
     camera_params0 = camera_params.copy()
+    points_3d0 = points_3d.copy()
 
-    A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, mask)
+    A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices, mask, point_mask)
 
-    x0 = np.hstack((c2x(camera_params, mask), points_3d.ravel()))
+    x0 = np.hstack((c2x(camera_params, mask), c2x(points_3d, point_mask)))
 
-    res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', loss=loss, args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, inv_stdev, camera_params0))
+    res = least_squares(reprojection_error, x0, jac_sparsity=A, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf', loss=loss, args=(n_cameras, n_points, camera_indices, point_indices, points_2d, mask, point_mask, weights, inv_stdev, camera_params0, points_3d0))
 
     camera_params, n = x2c(res.x, camera_params0, mask)
 
-    points_3d = res.x[n:].reshape((-1, 3))
+    points_3d, n_point = x2c(res.x[n:], points_3d0, point_mask)
 
-    e = reprojection_error(res.x, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, weights, None, camera_params0).reshape((-1, 2))
+    e = reprojection_error(res.x, n_cameras, n_points, camera_indices, point_indices, points_2d, mask, point_mask, weights, None, camera_params0, points_3d0).reshape((-1, 2))
     e = np.linalg.norm(e, axis=1)
     assert( len(e) == n_observations )
     e = np.sqrt(np.mean(e))
