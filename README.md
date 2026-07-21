@@ -27,7 +27,7 @@ Notice that the pip installation does not include examples in [`./ipynb/`](./ipy
 
 1. **Local:** You can clone/download this repository to your local PC, and open `./ipynb/*.ipynb` files by your local Jupyter (e.g., VSCode + Jupyter plugin).
 2. **Colaboratory:** You can open each Jupyter notebook directly in Google Colaboratory by clicking the ![Open In Colab][def] buttons below.
-   - Most of them do not run properly as-is, since colab does not clone images used in the Jupyter notebooks. Please upload required files manually. (or run `!pip install` and `!git clone` at the beginning of each notebook.)
+   - Most of them do not run properly as-is, since colab does not clone image/data files used in the Jupyter notebooks. Please upload required files manually. (or run `!pip install` and `!git clone` at the beginning of each notebook.)
    - The scripts in `./tools/` are not supposed to run in Colab/Jupyter.
 
 
