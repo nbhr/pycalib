@@ -116,6 +116,7 @@ def x2c(x, c0, mask):
         else:
             assert mask.dtype == int
             uval, uval_indices, uval_inverse, uval_counts = np.unique(mask, return_index=True, return_inverse=True, return_counts=True)
+            uval_inverse = uval_inverse.reshape(-1)
             idx = uval_inverse.reshape(mask.shape)
             camera_params[mask != 0] = x[uval_inverse[mask.flatten() != 0]-1]
             n_params_total = np.sum(uval != 0)
