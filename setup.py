@@ -3,10 +3,18 @@
 # License: Apache Software License
 
 from setuptools import setup
+import re
+import pathlib
 
-import re, pathlib
-VERSION = re.search(r"__version__\s*=\s*['\"]([^'\"]+)",
-                    pathlib.Path('pycalib/__init__.py').read_text()).group(1)
+def get_version():
+    src = pathlib.Path(__file__).parent / 'pycalib' / '__init__.py'
+    text = src.read_text(encoding='utf-8')
+    m = re.search(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", text, re.M)
+    if m is None:
+        raise RuntimeError('__version__ not found in pycalib/__init__.py')
+    return m.group(1)
+
+VERSION = get_version()
 
 DESCRIPTION = "PyCalib: Simple Camera Calibration in Python for Beginners"
 NAME = 'pycalib-simple'
@@ -15,7 +23,6 @@ AUTHOR_EMAIL = 'nob@ieee.org'
 URL = 'https://github.com/nbhr/pycalib'
 LICENSE = 'Apache Software License'
 DOWNLOAD_URL = 'https://github.com/nbhr/pycalib'
-VERSION = pycalib.__version__
 PYTHON_REQUIRES = ">=3.6"
 
 INSTALL_REQUIRES = [
@@ -51,9 +58,9 @@ CLASSIFIERS = [
     'Framework :: Jupyter',
 ]
 
-with open('README.md', 'r') as fp:
+with open('README.md', 'r', encoding='utf-8') as fp:
     readme = fp.read()
-with open('CONTACT.txt', 'r') as fp:
+with open('CONTACT.txt', 'r', encoding='utf-8') as fp:
     contacts = fp.read()
 long_description = readme + '\n\n' + contacts
 
