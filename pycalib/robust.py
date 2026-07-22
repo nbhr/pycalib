@@ -202,9 +202,46 @@ def triangulate_inliers(df_undistorted, X, P, *, primary_key=['frame', 'label'],
     df = pd.merge(X, df[primary_key+['X','Y','Z']], how='inner', on=primary_key, suffixes=['', '_in'])
     return df
 
+def _triangulate_pairs(df, P, pairs, *, nproc, reproj_th, re_triangulate, bundle_adjustment, show_pbar, primary_key, key_cid, key_x, key_y, key_w, distorted, camera_matrix, dist_coeffs):
+    """Shared core of triangulate_consensus() / triangulate_ransac(): triangulate
+    every point visible in each of the given camera `pairs`, merge the per-point
+    best (highest inlier count) result across pairs, and optionally re-triangulate
+    using all of that point's identified inlier cameras."""
+
+    cids = df[key_cid].unique()
+    if distorted:
+        df = df.copy()
+        assert camera_matrix is not None and dist_coeffs is not None, 'camera_matrix and dist_coeffs must be provided'
+        for c in cids:
+            undistort_inplace(df, c, camera_matrix[c], dist_coeffs[c])
+
+    if key_w is not None:
+        dfw = df[primary_key+[key_cid, key_x, key_y, key_w]].copy()
+
+    df = df[primary_key+[key_cid, key_x, key_y]].copy()
+
+    # two-view triangulation in parallel
+    p = multiprocessing.Pool(multiprocessing.cpu_count() if nproc <= 0 else nproc)
+    args = [(df, P, c1, c2, reproj_th, primary_key, key_cid, key_x, key_y) for c1, c2 in pairs]
+    dfs = []
+    for d in tqdm(p.imap_unordered(triangulate_wrapper, args), total=len(args), disable=not show_pbar):
+        dfs.append(d)
+    p.close()
+    p.join()
+
+    # merge results
+    X = merge(dfs, primary_key=primary_key)
+
+    # re-triangulation using all inliers
+    if re_triangulate or bundle_adjustment:
+        X = triangulate_inliers(df if key_w is None else dfw, X, P, primary_key=primary_key, key_cid=key_cid, key_x=key_x, key_y=key_y, bundle_adjustment=bundle_adjustment, key_w=key_w)
+
+    return X, df
+
+
 def triangulate_consensus(df, P, *, nproc=0, reproj_th=10, re_triangulate=True, bundle_adjustment=False, show_pbar=True, primary_key=['frame', 'label'], key_cid='camera', key_x='x', key_y='y', key_w=None, distorted=False, camera_matrix=None, dist_coeffs=None):
     """
-    Robust n-view triangulation
+    Robust n-view triangulation, trying every possible camera pair.
 
     Parameters
     ----------
@@ -247,35 +284,150 @@ def triangulate_consensus(df, P, *, nproc=0, reproj_th=10, re_triangulate=True, 
         undistorted 2D points with columns [primary_key, key_cid, key_x, key_y]
     """
 
-    cids = df[key_cid].unique()
-    if distorted:
-        df = df.copy()
-        assert camera_matrix is not None and dist_coeffs is not None, 'camera_matrix and dist_coeffs must be provided'
-        for c in cids:
-            undistort_inplace(df, c, camera_matrix[c], dist_coeffs[c])
+    cids = sorted(df[key_cid].unique())
+    pairs = list(itertools.combinations(cids, 2))
 
-    if key_w is not None:
-        dfw = df[primary_key+[key_cid, key_x, key_y, key_w]].copy()
+    return _triangulate_pairs(df, P, pairs, nproc=nproc, reproj_th=reproj_th, re_triangulate=re_triangulate,
+                               bundle_adjustment=bundle_adjustment, show_pbar=show_pbar, primary_key=primary_key,
+                               key_cid=key_cid, key_x=key_x, key_y=key_y, key_w=key_w, distorted=distorted,
+                               camera_matrix=camera_matrix, dist_coeffs=dist_coeffs)
 
-    df = df[primary_key+[key_cid, key_x, key_y]].copy()
 
-    # two-view triangulation in parallel
-    p = multiprocessing.Pool(multiprocessing.cpu_count() if nproc <= 0 else nproc)
-    args = [(df, P, c1, c2, reproj_th, primary_key, key_cid, key_x, key_y) for c1, c2 in itertools.combinations(cids, 2)]
-    dfs = []
-    for d in tqdm(p.imap_unordered(triangulate_wrapper, args), total=len(args), disable=not show_pbar):
-        dfs.append(d)
-    p.close()
-    p.join()
+def ransac_n_trials(success_prob, inlier_ratio, *, sample_size=2):
+    """
+    Number of RANSAC trials needed so that, with probability >= `success_prob`,
+    at least one trial's random sample of `sample_size` observations is made
+    entirely of inliers.
 
-    # merge results
-    X = merge(dfs, primary_key=primary_key)
+    N >= log(1 - success_prob) / log(1 - inlier_ratio**sample_size)
 
-    # re-triangulation using all inliers
-    if re_triangulate or bundle_adjustment:
-        X = triangulate_inliers(df if key_w is None else dfw, X, P, primary_key=primary_key, key_cid=key_cid, key_x=key_x, key_y=key_y, bundle_adjustment=bundle_adjustment, key_w=key_w)
+    Parameters
+    ----------
+    success_prob: float
+        desired probability (0, 1) of drawing at least one all-inlier sample
+    inlier_ratio: float
+        assumed probability (0, 1] that a single randomly chosen observation
+        (here: a single camera, for a given 3D point) is an inlier
+    sample_size: int
+        number of observations per trial (2 for two-view triangulation)
 
-    return X, df
+    Returns
+    -------
+    n_trials: int
+    """
+
+    assert 0 < success_prob < 1, success_prob
+    assert 0 < inlier_ratio <= 1, inlier_ratio
+
+    if inlier_ratio >= 1:
+        return 1
+
+    n_trials = np.log(1 - success_prob) / np.log(1 - inlier_ratio**sample_size)
+    return max(1, int(np.ceil(n_trials)))
+
+
+def triangulate_ransac(df, P, *, n_trials=None, success_prob=0.99, inlier_ratio=0.5, seed=None, nproc=0, reproj_th=10, re_triangulate=True, bundle_adjustment=False, show_pbar=True, primary_key=['frame', 'label'], key_cid='camera', key_x='x', key_y='y', key_w=None, distorted=False, camera_matrix=None, dist_coeffs=None):
+    """
+    Robust n-view triangulation via RANSAC: instead of exhaustively trying every
+    camera pair like triangulate_consensus() does (an O(Nc^2) cost that becomes
+    expensive as the number of cameras grows), only a limited number of randomly
+    sampled camera pairs are tried.
+
+    For each sampled pair, triangulate() already (1) triangulates the point,
+    (2) discards it if it isn't in front of both cameras of the pair, and
+    (3) reprojects it to the remaining cameras to count reprojection-error
+    inliers. After all trials, merge() keeps -- independently for each 2D
+    point -- whichever trial produced the most inliers, and (if
+    `re_triangulate` or `bundle_adjustment`) triangulate_inliers() does the
+    final triangulation using every camera in that best inlier set. This is
+    the same "pick 2 views -> triangulate -> cheirality check -> count
+    inliers -> repeat -> keep the best inlier set -> re-triangulate with all
+    of it" procedure as triangulate_consensus(), just over a random subset of
+    pairs rather than all of them.
+
+    The number of trials can be given either directly via `n_trials`, or
+    derived from a target `success_prob` and an assumed `inlier_ratio` using
+    the standard RANSAC formula (see ransac_n_trials()). If `n_trials` is
+    given explicitly, it always takes precedence and `success_prob` /
+    `inlier_ratio` are ignored. Note that `inlier_ratio` here is a single,
+    global assumption shared by every 3D point in `df` (all trials sample
+    from the same set of camera pairs across all points), so treat it as a
+    conservative estimate of the worst-case inlier ratio among your points,
+    not a per-point guarantee.
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        list of 2D points with columns [primary_key, key_cid, key_x, key_y]
+    P: numpy.array
+        projection matrices (Nc x 3 x 4)
+    n_trials: int or None
+        number of randomly sampled camera pairs to try. If this is >= the
+        total number of possible pairs, all pairs are used (falls back to
+        the same exhaustive behavior as triangulate_consensus()). If None
+        (default), it is computed from `success_prob` and `inlier_ratio`.
+    success_prob: float
+        used only when `n_trials` is None: desired probability (0, 1) of
+        sampling at least one all-inlier camera pair. Default 0.99.
+    inlier_ratio: float
+        used only when `n_trials` is None: assumed probability (0, 1] that a
+        randomly chosen camera observes a given 3D point as an inlier.
+        Default 0.5.
+    seed: int or None
+        seed for the random pair sampling, for reproducibility
+    nproc: int
+        number of concurrent processes
+    reproj_th: float
+        reprojection error threshold
+    re_triangulate: Bool
+        do final triangulation using identified inliers
+    bundle_adjustment: Bool
+        do bundle adjustment to minimize reprojection errors (implies re_triangulate)
+    show_pbar: Bool
+        show progress bar
+    primary_key: list of str
+        primary key columns to identify points
+    key_cid: str
+        column name of camera id
+    key_x: str
+        column name of x
+    key_y: str
+        column name of y
+    key_w: str
+        colum name of weighting factor of each 2D point for scaling its reprojection error
+    distorted: Bool
+        do undistortion before triangulation (requires camera_matrix and dist_coeffs)
+    camera_matrix: numpy.array
+        camera matrix (Nc x 3 x 3)
+    dist_coeffs: numpy.array
+        distortion coefficients (Nc x {4,5,8})
+
+    Returns
+    -------
+    X: pandas.DataFrame
+        triangulated 3D points with columns [primary_key, key_cid, key_x, key_y, X, Y, Z]
+    df: pandas.DataFrame
+        undistorted 2D points with columns [primary_key, key_cid, key_x, key_y]
+    """
+
+    if n_trials is None:
+        n_trials = ransac_n_trials(success_prob, inlier_ratio, sample_size=2)
+    assert n_trials >= 1, n_trials
+
+    cids = sorted(df[key_cid].unique())
+    all_pairs = list(itertools.combinations(cids, 2))
+
+    if n_trials >= len(all_pairs):
+        pairs = all_pairs
+    else:
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(len(all_pairs), size=n_trials, replace=False)
+        pairs = [all_pairs[i] for i in idx]
+
+    return _triangulate_pairs(df, P, pairs, nproc=nproc, reproj_th=reproj_th, re_triangulate=re_triangulate,
+                               bundle_adjustment=bundle_adjustment, show_pbar=show_pbar, primary_key=primary_key,
+                               key_cid=key_cid, key_x=key_x, key_y=key_y, key_w=key_w, distorted=distorted,
+                               camera_matrix=camera_matrix, dist_coeffs=dist_coeffs)
 
 
 def main_undistort():
