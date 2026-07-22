@@ -52,8 +52,22 @@ def triangulate(df, P, cid1, cid2, *, reproj_th=10, primary_key=['frame', 'label
     X = cv2.triangulatePoints(P[cid1], P[cid2], p1.T, p2.T)
     X = X / X[3]
 
-    # Reproject to all cameras
+    # Reproject to all cameras (un-normalized; the 3rd row is each camera's depth)
     x = np.einsum('cij,jp->cip', P, X)
+
+    # Cheirality check: discard points that are not in front of BOTH triangulating views.
+    # (An all-behind pair, e.g. two opposite-facing cameras in a 360-degree rig, is a
+    # normal occurrence -- not an error -- so we don't raise, just contribute nothing.)
+    front = (x[cid1, 2, :] > 0) & (x[cid2, 2, :] > 0)
+    d = d[front].reset_index(drop=True)
+    X = X[:, front]
+    x = x[:, :, front]
+
+    if len(d) == 0:
+        for col in ['X', 'Y', 'Z', 'reproj', 'outliers', 'inliers', 'n_outliers', 'n_inliers']:
+            d[col] = []
+        return d.convert_dtypes()
+
     x = x / x[:,2:3,:]
 
     # Merge the other 2D observation by left-outer-join on frame and keypoint
