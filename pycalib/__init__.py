@@ -15,7 +15,7 @@ __all__ = [
     "util",
     ]
 
-__version__ = '2026.07.21.4'
+__version__ = '2026.07.22.1'
 
 from .ba import *
 from .bal import *
